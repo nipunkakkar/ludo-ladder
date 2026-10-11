@@ -5,7 +5,7 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
   let selectedGame = 'ludo', count = 2, connection = null, state = null;
   let homeBusy = false, commandBusy = false, animationBusy = false, lastAction = 0;
-  let toastTimer, diceTimer, boardAnimation = null, visualEpoch = 0, displayedGame = null, boardKey = '';
+  let toastTimer, diceTimer, reactionClearTimer, boardAnimation = null, visualEpoch = 0, displayedGame = null, boardKey = '';
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const reactionTimers=new Set();
   let speaker=null;
@@ -36,7 +36,7 @@
       toggle.setAttribute('aria-pressed',String(enabled));toggle.classList.toggle('enabled',enabled);toggle.textContent=enabled?'On':'Off';
       $('#'+channel+'-volume').value=Math.round(settings[channel]*100);$('#'+channel+'-volume-label').value=Math.round(settings[channel]*100)+'%';
     }
-    $$('[data-effect-preview]').forEach(button=>{button.disabled=!settings.effectsOn || !settings.effects;});
+    syncEffectPreviews();
     const track=window.GameAudio.TRACKS.find(item=>item.id===settings.track);
     $('#audio-note').textContent=settings.started ? settings.musicOn?`${track.name} is playing. Pick another mood anytime.`:'Music is off. Game effects have their own control.' : 'Music starts with your first click or tap.';
     $('#audio-btn').classList.toggle('muted',!settings.musicOn&&!settings.effectsOn);
@@ -45,19 +45,38 @@
   }
   function syncVoice(status){
     $('#voice-btn').setAttribute('aria-pressed',String(status.enabled));$('#voice-btn').textContent=status.enabled?'♫ Voice on':'♫ Voice off';
-    $('#voice-status').textContent=status.available?'Short reactions, a little friendly drama.':'Text reactions · voice available in browsers with an installed English voice.';
+    $('#voice-status').textContent=status.available?'Big moments only. Small talk takes a nap.':'Text reactions · voice available in browsers with an installed English voice.';
   }
-  function clearReactions(){reactionTimers.forEach(timer=>clearTimeout(timer));reactionTimers.clear();}
+  function syncEffectPreviews(){
+    const type=state?.type||selectedGame,panel=$('#effect-previews');
+    if(panel.dataset.game!==type){
+      const samples=type==='snakes'?[['race-start','Start race ↗'],['ladder','Climb ↑'],['snake','Slide ↓'],['win','Win ★']]:[['release','New token ↗'],['capture','Capture ⚡'],['finish','Home ★']];
+      panel.innerHTML='<span>'+(type==='snakes'?'SNAKES &amp; LADDERS HIGHLIGHTS':'LUDO CELEBRATIONS')+'</span>'+samples.map(([kind,label])=>`<button type="button" data-effect-preview="${kind}">${label}</button>`).join('');panel.dataset.game=type;
+    }
+    $$('[data-effect-preview]').forEach(button=>{button.disabled=!audio.settings.effectsOn || !audio.settings.effects;});
+  }
+  function clearReactions(){
+    reactionTimers.forEach(timer=>clearTimeout(timer));reactionTimers.clear();clearTimeout(reactionClearTimer);
+    $('#commentator').classList.remove('reacting');$('#commentator').dataset.mood='happy';$('#board-container').removeAttribute('data-highlight');$$('#board-container .highlighted').forEach(node=>node.classList.remove('highlighted'));
+  }
+  function hostIntro(type){
+    $('#commentary-label').textContent='JUST THE BIG MOMENTS';$('#commentary-text').textContent=type==='snakes'?"I'm Milo. Trust the ladders. Never trust a smiling snake!":"I'm Milo. Dice, drama, and absolutely no boring small talk!";
+  }
   function react(event){
     const host=$('#commentator');host.dataset.mood=event.mood;$('#commentary-text').textContent=event.text;
+    $('#commentary-label').textContent='LAST BIG MOMENT';
     host.classList.remove('reacting');void host.offsetWidth;host.classList.add('reacting');
+    const board=$('#board-container'),action=state.game.action;
+    board.dataset.highlight=event.effect||event.kind;
+    const token=['ludo-move','snakes-move'].includes(action.type)?$$('#board-container .board-token').find(node=>node.dataset.player===action.player && Number(node.dataset.token)===(action.token||0)):null;token?.classList.add('highlighted');
+    clearTimeout(reactionClearTimer);reactionClearTimer=setTimeout(()=>{host.classList.remove('reacting');host.dataset.mood='happy';board.removeAttribute('data-highlight');token?.classList.remove('highlighted');},1200);
     if(event.effect)playSound(event.effect);
-    if(!document.hidden && audio.settings.effectsOn)speaker.say(event.text,audio.settings.effects*.9);
+    if(!document.hidden && audio.settings.effectsOn)speaker.say(event.text,audio.settings.effects*.9,event.mood);
   }
   function queueReactions(before,game,motions,lead){
-    const primary=motions.find(motion=>motion.primary),arrival=lead+(reducedMotion?0:primary?.duration||0);
-    window.GameCommentary.events(before,game).forEach(event=>{
-      const timer=setTimeout(()=>{reactionTimers.delete(timer);if(state?.game?.action?.id===game.action.id)react(event);},event.timing==='roll'?lead:arrival);
+    const events=window.GameCommentary.events(before,game);
+    window.GameCommentary.schedule(events,motions,{lead,reduced:reducedMotion}).forEach(event=>{
+      const timer=setTimeout(()=>{reactionTimers.delete(timer);if(state?.game?.action?.id===game.action.id)react(event);},event.delay);
       reactionTimers.add(timer);
     });
   }
@@ -65,7 +84,7 @@
     $('#table-panel').hidden=!tableOpen;$('#table-toggle').setAttribute('aria-expanded',String(tableOpen));$('#table-toggle b').textContent=tableOpen?'−':'+';
   }
   function resetVisuals() {
-    clearReactions();speaker?.cancel();$('#commentator').dataset.mood='happy';$('#commentary-text').textContent="I'm Milo, your table host. Let's roll some luck!";
+    clearReactions();speaker?.cancel();hostIntro(selectedGame);
     visualEpoch++;boardAnimation?.cancel();boardAnimation=null;clearTimeout(diceTimer);animationBusy=false;lastAction=0;displayedGame=null;boardKey='';$('#die').classList.remove('rolling');
   }
   function username() {
@@ -204,14 +223,15 @@
       const motions=fresh?window.BoardMotion.plan(before,game):[], lead=rollFresh&&!reducedMotion?650:0;
       const epoch=++visualEpoch;boardAnimation?.cancel();clearTimeout(diceTimer);$('#die').classList.remove('rolling');
       clearReactions();
+      if(!before)hostIntro(game.type);
       animationBusy=!!before && (rollFresh||motions.length>0) && !reducedMotion;
       $('#board-container').innerHTML = game.type==='ludo'?Art.ludo(game,connection.id,'match-ludo',connection.local):Art.snakes(game,connection.id,'match-snakes',connection.local);
       die(game.lastDie?.value);
       if(rollFresh){playSound('roll');if(!reducedMotion){void $('#die').offsetWidth;$('#die').classList.add('rolling');diceTimer=setTimeout(()=>{$('#die').classList.remove('rolling');},650);}}
       if(animationBusy){
         boardAnimation=window.BoardMotion.animate($('#board-container svg'),motions,{delay:lead,onSound:playSound});
-        boardAnimation.finished.then(()=>{if(epoch!==visualEpoch)return;animationBusy=false;boardAnimation=null;if(state?.game){updateControls();if(game.winner)playSound('win');}});
-      }else if(fresh&&before&&game.winner)playSound('win');
+        boardAnimation.finished.then(()=>{if(epoch!==visualEpoch)return;animationBusy=false;boardAnimation=null;if(state?.game)updateControls();});
+      }
       if(fresh && before)queueReactions(before,game,motions,lead);
       boardKey=key;
     }
@@ -242,6 +262,7 @@
     $('#room-code-display').textContent=state.code;
     $('#copy-code').disabled=connection.local;$('#invite-btn').hidden=connection.local;
     $('#lobby-view').hidden=state.phase!=='lobby';$('#match-view').hidden=state.phase==='lobby';
+    syncEffectPreviews();
     if(state.phase==='lobby')renderLobby();else renderMatch();
     statusBanner();
     if(!connection.local){const url=new URL(location.href);url.searchParams.set('room',state.code);history.replaceState(null,'',url.href);}
@@ -250,6 +271,7 @@
     connection?.close();connection=null;state=null;commandBusy=false;animationBusy=false;lastAction=0;
     resetVisuals();
     $('#home-view').hidden=false;$('#room-view').hidden=true;$('#connection-banner').hidden=true;
+    syncEffectPreviews();
     window.scrollTo({top:0,behavior:'instant'});
     const url=new URL(location.href);url.searchParams.delete('room');history.replaceState(null,'',url.href);
   }
@@ -259,6 +281,7 @@
   }
   $$('[data-game]').forEach(button=>button.addEventListener('click',()=>{
     selectedGame=button.dataset.game;
+    syncEffectPreviews();
     $$('[data-game]').forEach(item=>{item.classList.toggle('selected',item===button);item.setAttribute('aria-pressed',String(item===button));});playSound('tap');
   }));
   $$('[data-count]').forEach(button=>button.addEventListener('click',()=>{

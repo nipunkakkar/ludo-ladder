@@ -34,8 +34,8 @@
           squares.forEach((square,index)=>segments.push({to:center(after.type,player.color,square,token),duration:from<0?320:145,hop:from<0?12:5,sound:'step',step:index}));
           if(after.type==='snakes' && action.jump){
             const landingPoint=center(after.type,player.color,landing,token);
-            if(action.jump==='ladder')segments.push({to:end,duration:700,hop:0,sound:'ladder'});
-            else {const points=curve(landingPoint,end,true);points.slice(1).forEach((at,index)=>segments.push({to:at,duration:42,hop:0,sound:index===0?'snake':null,linear:true}));}
+            if(action.jump==='ladder')segments.push({to:end,duration:700,hop:0,highlight:'ladder'});
+            else {const points=curve(landingPoint,end,true);points.slice(1).forEach((at,index)=>segments.push({to:at,duration:42,hop:0,highlight:index===0?'snake':null,linear:true}));}
           }
           if(segments.length)segments[segments.length-1].to=end;
         }else if(from!==to && to===-1){

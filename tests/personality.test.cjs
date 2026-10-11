@@ -23,18 +23,18 @@ test('music offers five distinct compositions and validates saved track preferen
  const engine=new Audio.Engine();engine.configure({track:'rush',effectsOn:false});assert.equal(engine.settings.track,'rush');engine.configure({track:'bad-value'});assert.equal(engine.settings.track,'rush');assert.equal(engine.settings.effectsOn,false);engine.stop();
 });
 test('release, capture and finish have different short musical signatures',()=>{
- assert.deepEqual(Object.keys(Audio.STINGS),['release','capture','finish']);const signatures=Object.values(Audio.STINGS);assert.equal(new Set(signatures.map(value=>JSON.stringify(value))).size,3);
+ const signatures=['release','capture','finish'].map(kind=>Audio.STINGS[kind]);assert.equal(new Set(signatures.map(value=>JSON.stringify(value))).size,3);
  for(const notes of signatures){const end=Math.max(...notes.map(([,at,duration])=>at+duration));assert.ok(end>=.45 && end<=.55);}
 });
-test('commentary announces sixes, releases, captures and finishes once per new action',()=>{
- const start=R.create('ludo',players),six=clone(start);R.roll(six,'0',6);assert.equal(Commentary.events(start,six)[0].kind,'six');assert.match(Commentary.events(start,six)[0].text,/Hurrah/);
+test('commentary announces releases, captures and finishes once per new action',()=>{
+ const start=R.create('ludo',players),six=clone(start);R.roll(six,'0',6);assert.deepEqual(Commentary.events(start,six),[]);
  const released=clone(six);R.move(released,'0',0);assert.equal(Commentary.events(six,released)[0].effect,'release');assert.deepEqual(Commentary.events(released,clone(released)),[]);
- const before=R.create('ludo',players);before.players[0].tokens[0]=5;before.players[2].tokens=[32,32,-1,-1];const after=clone(before);R.roll(after,'0',1);R.autoMove(after,'0');const capture=Commentary.events(before,after);assert.equal(capture.length,1);assert.equal(capture[0].effect,'capture');assert.match(capture[0].text,/Oh no! Sam got caught/);
+ const before=R.create('ludo',players);before.players[0].tokens[0]=5;before.players[2].tokens=[32,32,-1,-1];const after=clone(before);R.roll(after,'0',1);R.autoMove(after,'0');const capture=Commentary.events(before,after);assert.equal(capture.length,1);assert.equal(capture[0].effect,'capture');assert.match(capture[0].text,/Sam/);
  const finishStart=R.create('ludo',players);finishStart.players[0].tokens[0]=55;const finish=clone(finishStart);R.roll(finish,'0',1);R.autoMove(finish,'0');assert.equal(Commentary.events(finishStart,finish)[0].effect,'finish');
 });
 test('snake and ladder commentary follows the actual landing result',()=>{
  const start=R.create('snakes',players),ladder=clone(start);R.roll(ladder,'0',3);assert.equal(Commentary.events(start,ladder)[0].kind,'ladder');
- const before=R.create('snakes',players);before.players[0].tokens[0]=16;const after=clone(before);R.roll(after,'0',1);assert.equal(Commentary.events(before,after)[0].mood,'surprise');assert.match(Commentary.events(before,after)[0].text,/snake/);
+ const before=R.create('snakes',players);before.players[0].tokens[0]=16;const after=clone(before);R.roll(after,'0',1);assert.equal(Commentary.events(before,after)[0].mood,'surprise');assert.equal(Commentary.events(before,after)[0].effect,'snake');
 });
 test('spoken reactions require a local English voice and respect mute and gesture unlock',()=>{
  const spoken=[],synth={getVoices:()=>[{lang:'en-US',localService:false},{lang:'hi-IN',localService:true}],speak:value=>spoken.push(value),cancel(){},addEventListener(){},removeEventListener(){}};
