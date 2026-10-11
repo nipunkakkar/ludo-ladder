@@ -1,54 +1,55 @@
 # Ludo Ladder
 
-A small, colourful game-night website for **Ludo** and **Snakes & Ladders**. Choose 2, 3 or 4 players, create a room, and share its six-character code or invite link. You can also share one device and take turns locally.
-
-**Preview status:** one-device play has been checked in the browser, and 19 automated tests cover the rules and host/guest messages. Real online room creation works, but two-browser joining timed out in the verification environment. Online multiplayer is a preview and is not yet verified end to end across devices. Use **Play on this device** to try both games reliably.
+A small, colourful game-night website for **Ludo** and **Snakes & Ladders**. Choose 2, 3 or 4 players, make a room, and share its six-character code or invite link. You can also share one device and take turns locally.
 
 ## Play
 
-1. Choose a game and player count, enter your name, and select **Create private room**.
+1. Choose a game and player count, enter your name and select **Create private room**.
 2. Friends open the same website, enter their names and the code, and select **Join room**.
-3. Each guest selects **I'm ready**. The host starts when all selected seats are ready.
-4. Roll on your turn. In Ludo, choose a highlighted token or its button underneath the dice. Snakes & Ladders moves your pawn automatically.
+3. Guests select **I'm ready**. The host starts when all selected seats are ready.
+4. Roll on your turn. In Ludo, choose a highlighted token or its button under the dice. Snakes & Ladders moves your pawn automatically.
 
-The host must keep their tab open. Rooms exist in browser memory: refreshing or closing the host tab ends the room. A disconnected guest can reconnect or reload and rejoin from the same browser tab; their seat is reserved during a game. Codes keep separate games apart but are invitations, not passwords; share them only with your players.
+The host keeps their tab open: that browser holds the room and validates all rolls and moves. Refreshing or closing the host tab ends the room. Guest seats are reserved during a game; they can reconnect or reload and rejoin from the same tab. A dropped host connection can be restored using **Reconnect** while the original host tab remains open.
 
 ## Run locally
 
-Requires Node.js 18 or newer. There is no build step and no dependency installation is required to play or run the tests.
+Node.js 18 or newer is enough. There is no build step and no installation is needed to play or run the tests: the small browser connection client is vendored.
 
 ```sh
 npm run dev
 ```
 
-Open http://127.0.0.1:5062/. For online play, open a second browser tab and join the room. To test on other devices, serve the files through HTTPS. Browser crypto and WebRTC require a secure origin; localhost is accepted for development.
+Open http://127.0.0.1:5062/. Use two tabs or browsers to test an online room. Online play uses the public relay even when the game files are served locally. **Play on this device** works without that connection service.
 
 ```sh
 npm test
 npm run check
 ```
 
+The 22 automated tests cover game rules, room capacity and isolation, ready/start/turn validation, private packet routing, guest removal and reconnection. Actual browser clients have also been checked through the public relay.
+
 ## Stack and hosting
 
-- HTML, CSS, vanilla JavaScript and original SVG board artwork. No framework, remote fonts, image downloads, accounts or API keys.
-- PeerJS 1.5.5 is vendored in `vendor/`; its MIT license is included. `npm install` is optional and restores the pinned upstream dependency for development.
-- WebRTC carries game messages between browsers. The public PeerJS service helps browsers find each other. The relay configuration uses the [Open Relay provider's documented public static-auth service](https://www.metered.ca/tools/openrelay/#static-auth), with short-lived HMAC credentials and TCP/TLS fallback. Its shared secret is publicly advertised by the provider and is not an account key. PeerJS's discontinued default TURN endpoints are replaced. Both public services and the players' networks affect connectivity; the one-device mode works without them. A dedicated relay or hosted room server would be needed for stronger online reliability.
-- The host validates turns, legal moves, room capacity and state versions, and rolls dice using browser cryptographic randomness. The host browser is trusted; this is a casual friends game, not an anti-cheat competitive service.
-- Player names are stored locally for convenience. Guest rejoin identities use session storage. No analytics or application database.
-- GitHub Pages can serve the repository root directly from `main`. All asset URLs are relative, and `.nojekyll` is included.
+- HTML, CSS, vanilla JavaScript and original SVG boards. No framework, remote fonts, player accounts or AI API keys.
+- [Itty Sockets](https://ittysockets.com/docs/getting-started) 0.9.3 carries game messages through a free shared WebSocket relay (`wss://itty.ws`). Its browser client and MIT license are included under `vendor/`. No Railway account, deployed game server or API key is needed.
+- The host browser owns game state. The relay forwards direct messages between connected clients. Guests send their seat identities and commands directly to the host; the host sends snapshots only to admitted players. Different room codes use different channels.
+- This replaces PeerJS/WebRTC: no direct browser connection, STUN or TURN negotiation is needed. The service is external to GitHub Pages and has no availability guarantee. If it is unavailable, one-device play still works. GitHub Pages itself only serves static files; it does not hold room state.
+- WebSocket traffic uses TLS. The relay operator is part of the trust model; this is not an end-to-end encrypted game. Room codes are invitations, not passwords. Share them only with intended players. The host is trusted; this is a casual friends game rather than an anti-cheat competitive service.
+- Names are remembered in local storage. Rejoin identities are saved in session storage. No analytics or application database is included.
+- GitHub Pages serves the repository root directly from `main`. Asset URLs are relative, and `.nojekyll` is included. Changes to `main` automatically deploy to the same URL.
 
-The browser app is roughly 172 KB before compression. The test and development files are not loaded by the website.
+The browser download is about 80 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
 
 ## Rules used
 
-**Ludo:** a six releases a token. Sixes, captures and reaching home earn another roll; three consecutive sixes end the turn. Coloured start squares and star squares are safe. Landing on an unsafe square captures opposing tokens there. Stacked tokens do not block passage. Each token needs an exact roll to finish, and the first player with all four home wins. Two-player games use opposite colours.
+**Ludo:** a six releases a token. Sixes, captures and reaching home earn another roll; three consecutive sixes end the turn. Coloured start squares and stars are safe. Landing on an unsafe square captures opposing tokens there. Stacks do not block passage. Each token needs an exact roll to finish, and the first player with all four home wins. Two players use opposite colours.
 
-**Snakes & Ladders:** start at zero, follow the numbered zigzag track, climb ladders and slide down snakes. Turns alternate after every roll, including a six. You need an exact roll to reach 100; an overshoot leaves your pawn in place.
+**Snakes & Ladders:** start at zero and follow the numbered zigzag track. Landing at a ladder's foot climbs it; landing on a snake's head slides down. Every roll passes the turn, including a six. Reach 100 exactly to win; an overshoot stays in place.
 
-Rules are also available from the **?** button in the app.
+Rules are also available from the **?** button.
 
 ## Files
 
-`rules.js` contains the game rules, `room.js` validates room commands, `network.js` handles host/guest connections, `boards.js` draws the SVG boards, and `app.js` connects the UI. `config.js` contains public connection settings only; never put a private service credential in a static website.
+`rules.js` contains game rules, `room.js` validates room commands, `network.js` connects browser clients, `boards.js` draws the boards and `app.js` controls the interface. `config.js` holds the public channel prefix, not a private service credential.
 
-The artwork is original. Ludo King inspired the requested glossy board-game feel; this project is independent and does not use its branding or assets.
+The artwork is original. Ludo King inspired the requested glossy board-game feel; this project is independent and uses none of its branding or assets.

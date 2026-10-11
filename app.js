@@ -53,7 +53,7 @@
         if (connection !== network) return;
         if (tone === 'bad' || tone === 'warning') {
           $('#connection-text').textContent = text; $('#connection-banner').hidden = false;
-          $('#reconnect-btn').hidden = !!network.host || network.disposed;
+          $('#reconnect-btn').hidden = network.disposed;
         } else if (tone === 'good') { $('#connection-banner').hidden = true; }
       }
     );
@@ -104,7 +104,7 @@
     } else if (state.connectionLost) {
       $('#connection-banner').hidden = false;
       $('#connection-text').textContent = 'Connection to the host was lost. Keep this tab open and try reconnecting.';
-      $('#reconnect-btn').hidden = connection.host || connection.disposed;
+      $('#reconnect-btn').hidden = connection.disposed;
     } else if (!connection.disposed) $('#connection-banner').hidden = true;
   }
   function renderLobby() {
