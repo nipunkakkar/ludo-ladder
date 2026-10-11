@@ -7,8 +7,12 @@
   let homeBusy = false, commandBusy = false, animationBusy = false, lastAction = 0;
   let toastTimer, diceTimer, boardAnimation = null, visualEpoch = 0, displayedGame = null, boardKey = '';
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reactionTimers=new Set();
+  let speaker=null;
   const audio = new window.GameAudio.Engine({ onChange: syncAudio });
   try { audio.configure(JSON.parse(localStorage.getItem('ll-audio-v1') || '{}')); } catch (_) { audio.configure({}); }
+  speaker=new window.GameCommentary.Speaker({onChange:syncVoice});
+  try{speaker.configure(localStorage.getItem('ll-commentary-voice')!=='false');}catch(_){speaker.configure(true);}
   let tableOpen = true;
   try { tableOpen = localStorage.getItem('ll-table-open') !== 'false'; } catch (_) { /* Use the open panel. */ }
   syncTable();
@@ -24,19 +28,44 @@
   }
   function playSound(kind, step = 0) { audio.effect(kind, step); }
   function syncAudio(settings) {
+    const choices=$('#music-choices');
+    if(!choices.children.length)choices.innerHTML=window.GameAudio.TRACKS.map(track=>`<button type="button" class="music-choice" data-track="${track.id}" aria-pressed="false"><span><b>${track.name}</b><small>${track.description}</small></span><em>${track.bpm}<small>BPM</small></em></button>`).join('');
+    $$('[data-track]').forEach(button=>{const selected=button.dataset.track===settings.track;button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected));});
     for (const channel of ['music','effects']) {
       const enabled=settings[channel+'On'], toggle=$('#'+channel+'-toggle');
       toggle.setAttribute('aria-pressed',String(enabled));toggle.classList.toggle('enabled',enabled);toggle.textContent=enabled?'On':'Off';
       $('#'+channel+'-volume').value=Math.round(settings[channel]*100);$('#'+channel+'-volume-label').value=Math.round(settings[channel]*100)+'%';
     }
-    $('#audio-note').textContent=settings.started ? settings.musicOn?'Soft bells and warm chords. Make yourself at home.':'Music is off. Game effects have their own control.' : 'Music starts with your first click or tap.';
+    $$('[data-effect-preview]').forEach(button=>{button.disabled=!settings.effectsOn || !settings.effects;});
+    const track=window.GameAudio.TRACKS.find(item=>item.id===settings.track);
+    $('#audio-note').textContent=settings.started ? settings.musicOn?`${track.name} is playing. Pick another mood anytime.`:'Music is off. Game effects have their own control.' : 'Music starts with your first click or tap.';
     $('#audio-btn').classList.toggle('muted',!settings.musicOn&&!settings.effectsOn);
-    try { const {musicOn,effectsOn,music,effects}=settings;localStorage.setItem('ll-audio-v1',JSON.stringify({musicOn,effectsOn,music,effects})); } catch (_) { /* Preferences are optional. */ }
+    if(!settings.effectsOn || !settings.effects)speaker?.cancel();
+    try { const {musicOn,effectsOn,music,effects,track}=settings;localStorage.setItem('ll-audio-v1',JSON.stringify({musicOn,effectsOn,music,effects,track})); } catch (_) { /* Preferences are optional. */ }
+  }
+  function syncVoice(status){
+    $('#voice-btn').setAttribute('aria-pressed',String(status.enabled));$('#voice-btn').textContent=status.enabled?'♫ Voice on':'♫ Voice off';
+    $('#voice-status').textContent=status.available?'Short reactions, a little friendly drama.':'Text reactions · voice available in browsers with an installed English voice.';
+  }
+  function clearReactions(){reactionTimers.forEach(timer=>clearTimeout(timer));reactionTimers.clear();}
+  function react(event){
+    const host=$('#commentator');host.dataset.mood=event.mood;$('#commentary-text').textContent=event.text;
+    host.classList.remove('reacting');void host.offsetWidth;host.classList.add('reacting');
+    if(event.effect)playSound(event.effect);
+    if(!document.hidden && audio.settings.effectsOn)speaker.say(event.text,audio.settings.effects*.9);
+  }
+  function queueReactions(before,game,motions,lead){
+    const primary=motions.find(motion=>motion.primary),arrival=lead+(reducedMotion?0:primary?.duration||0);
+    window.GameCommentary.events(before,game).forEach(event=>{
+      const timer=setTimeout(()=>{reactionTimers.delete(timer);if(state?.game?.action?.id===game.action.id)react(event);},event.timing==='roll'?lead:arrival);
+      reactionTimers.add(timer);
+    });
   }
   function syncTable() {
     $('#table-panel').hidden=!tableOpen;$('#table-toggle').setAttribute('aria-expanded',String(tableOpen));$('#table-toggle b').textContent=tableOpen?'−':'+';
   }
   function resetVisuals() {
+    clearReactions();speaker?.cancel();$('#commentator').dataset.mood='happy';$('#commentary-text').textContent="I'm Milo, your table host. Let's roll some luck!";
     visualEpoch++;boardAnimation?.cancel();boardAnimation=null;clearTimeout(diceTimer);animationBusy=false;lastAction=0;displayedGame=null;boardKey='';$('#die').classList.remove('rolling');
   }
   function username() {
@@ -154,6 +183,7 @@
     $('#turn-title').textContent = game.winner && !animationBusy ? `${game.players.find(player=>player.id===game.winner).name} wins!` : moving ? `${actor.name} is moving` : mine && !connection.local ? 'Your turn' : `${active.name}'s turn`;
     $('#turn-hint').textContent = game.winner && !animationBusy?'One more game? Gather everyone for a rematch.':moving?game.action.automatic?'Only one legal move. Playing it for you.':'One little step at a time.':game.pending?mine?`You rolled ${game.pending.die}. Choose a glowing token.`:`${active.name} is choosing a token.`:game.type==='ludo'?'Roll a 6 to leave home. Stars are safe.':'First to 100. You need the exact roll to finish.';
     $('#dice-footnote').textContent = game.action?.automatic?'Only one legal move. Played automatically.':'A little luck goes a long way.';
+    $('#turn-dot').style.background=R.PALETTE[animationBusy?actor.color:active.color];
     renderPlayers(game,animationBusy?actor.id:active.id);
   }
   function renderPlayers(game, activeId) {
@@ -173,6 +203,7 @@
       const before=displayedGame, rollFresh=!!before && game.lastDie && game.lastDie.id!==before.lastDie?.id;
       const motions=fresh?window.BoardMotion.plan(before,game):[], lead=rollFresh&&!reducedMotion?650:0;
       const epoch=++visualEpoch;boardAnimation?.cancel();clearTimeout(diceTimer);$('#die').classList.remove('rolling');
+      clearReactions();
       animationBusy=!!before && (rollFresh||motions.length>0) && !reducedMotion;
       $('#board-container').innerHTML = game.type==='ludo'?Art.ludo(game,connection.id,'match-ludo',connection.local):Art.snakes(game,connection.id,'match-snakes',connection.local);
       die(game.lastDie?.value);
@@ -181,6 +212,7 @@
         boardAnimation=window.BoardMotion.animate($('#board-container svg'),motions,{delay:lead,onSound:playSound});
         boardAnimation.finished.then(()=>{if(epoch!==visualEpoch)return;animationBusy=false;boardAnimation=null;if(state?.game){updateControls();if(game.winner)playSound('win');}});
       }else if(fresh&&before&&game.winner)playSound('win');
+      if(fresh && before)queueReactions(before,game,motions,lead);
       boardKey=key;
     }
     if(fresh)lastAction=action.id;
@@ -256,10 +288,13 @@
     $('#'+channel+'-toggle').addEventListener('click',()=>audio.configure({[channel+'On']:!audio.settings[channel+'On']}));
     $('#'+channel+'-volume').addEventListener('input',event=>audio.configure({[channel]:Number(event.target.value)/100}));
   }
+  $('#music-choices').addEventListener('click',event=>{const choice=event.target.closest('[data-track]');if(choice)audio.configure({track:choice.dataset.track,musicOn:true});});
+  $('#effect-previews').addEventListener('click',event=>{const button=event.target.closest('[data-effect-preview]');if(button&&!button.disabled)playSound(button.dataset.effectPreview);});
+  $('#voice-btn').addEventListener('click',()=>{speaker.configure(!speaker.enabled);try{localStorage.setItem('ll-commentary-voice',String(speaker.enabled));}catch(_){/* Keep this tab's choice. */}});
   $('#table-toggle').addEventListener('click',()=>{tableOpen=!tableOpen;syncTable();try{localStorage.setItem('ll-table-open',String(tableOpen));}catch(_){/* Keep the current choice. */}});
-  document.addEventListener('pointerdown',()=>audio.start(),{passive:true});
-  document.addEventListener('keydown',event=>{audio.start();if(event.key==='Escape'&&!$('#audio-panel').hidden){$('#audio-panel').hidden=true;$('#audio-btn').setAttribute('aria-expanded','false');$('#audio-btn').focus();}},{capture:true});
+  document.addEventListener('pointerdown',()=>{audio.start();speaker.unlock();},{passive:true});
+  document.addEventListener('keydown',event=>{audio.start();speaker.unlock();if(event.key==='Escape'&&!$('#audio-panel').hidden){$('#audio-panel').hidden=true;$('#audio-btn').setAttribute('aria-expanded','false');$('#audio-btn').focus();}},{capture:true});
   document.addEventListener('click',event=>{if(!event.target.closest('.audio-settings')){$('#audio-panel').hidden=true;$('#audio-btn').setAttribute('aria-expanded','false');}});
-  document.addEventListener('visibilitychange',()=>audio.pause(document.hidden));
-  window.addEventListener('pagehide',()=>{connection?.close();audio.stop();resetVisuals();});
+  document.addEventListener('visibilitychange',()=>{audio.pause(document.hidden);if(document.hidden)speaker.cancel();});
+  window.addEventListener('pagehide',()=>{connection?.close();audio.stop();resetVisuals();speaker.stop();});
 })();

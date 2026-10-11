@@ -1,25 +1,12 @@
 (function (root, factory) {
   const rules = typeof module === 'object' && module.exports ? require('./rules.js') : root.BoardRules;
-  const api = factory(root, rules);
+  const geometry = typeof module === 'object' && module.exports ? require('./geometry.js') : root.BoardGeometry;
+  const api = factory(root, rules, geometry);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.BoardMotion = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (root, R) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (root, R, G) {
   'use strict';
-  function center(type, color, progress, token = 0) {
-    const [row,col] = type === 'ludo' ? R.coordinate(color,progress,token) : R.snakeCoordinate(progress);
-    return type === 'ludo' ? [15+(col+.5)*42,15+(row+.5)*42] : [24+(col+.5)*61.2,24+(row+.5)*61.2];
-  }
-  function point(game, id, token) {
-    const player = game.players.find(item=>item.id===id);
-    if (!player) return null;
-    const at = center(game.type,player.color,player.tokens[token],token), group=[];
-    for (const item of game.players) item.tokens.forEach((progress,index)=>{
-      const xy=center(game.type,item.color,progress,index);
-      if(Math.abs(xy[0]-at[0])<.01 && Math.abs(xy[1]-at[1])<.01)group.push({id:item.id,token:index});
-    });
-    const index=group.findIndex(item=>item.id===id && item.token===token);
-    return group.length>1 ? [at[0]+(index%2?1:-1)*9,at[1]+(Math.floor(index/2)-.5)*12] : at;
-  }
+  const center=G.center,point=G.point;
   function curve(from,to,snake=false) {
     const [x,y]=from,[tx,ty]=to,dx=tx-x,dy=ty-y,len=Math.hypot(dx,dy)||1;
     const bend=snake?Math.min(60,len*.22):0,px=-dy/len*bend,py=dx/len*bend;
@@ -52,10 +39,10 @@
           }
           if(segments.length)segments[segments.length-1].to=end;
         }else if(from!==to && to===-1){
-          curve(start,end).slice(1).forEach((at,index)=>segments.push({to:at,duration:23,hop:0,sound:index===0?'capture':null,linear:true}));
+          curve(start,end).slice(1).forEach(at=>segments.push({to:at,duration:23,hop:0,linear:true}));
         }else segments.push({to:end,duration:200,hop:0});
         if(!segments.length)segments.push({to:end,duration:240,hop:4,sound:'step'});
-        const motion={player:player.id,token,start,end,segments,delay:0,capture:to===-1 && from!==to,primary};
+        const motion={player:player.id,token,start,end,startWidth:G.layout(before,player.id,token).width,endWidth:G.layout(after,player.id,token).width,segments,delay:0,capture:to===-1 && from!==to,primary};
         const duration=segments.reduce((total,segment)=>total+segment.duration,0);motion.duration=duration;
         if(primary)primaryEnd=duration;motions.push(motion);
       });
@@ -66,21 +53,25 @@
   function animate(svg,motions,options={}) {
     let frame, resolve, cancelled=false;const begun=root.performance.now(), lead=options.delay||0;
     const targets=motions.map(motion=>({...motion,node:[...svg.querySelectorAll('.board-token')].find(node=>node.dataset.player===motion.player && Number(node.dataset.token)===motion.token),sounded:new Set()}));
-    const place=(node,at)=>node?.setAttribute('transform',`translate(${at[0]},${at[1]})`);
-    const finish=()=>{targets.forEach(motion=>{place(motion.node,motion.end);motion.node?.classList.remove('moving');});resolve();};
+    const place=(node,at,width)=>{
+      node?.setAttribute('transform',`translate(${at[0]},${at[1]})`);
+      if(node && width){const use=node.querySelector('use'),label=node.querySelector('text'),height=width*1.3;use?.setAttribute('width',width);use?.setAttribute('height',height);use?.setAttribute('x',-width/2);use?.setAttribute('y',-height/2);label?.setAttribute('y',height*.29);label?.setAttribute('font-size',Math.max(4,width*.27));}
+    };
+    const finish=()=>{targets.forEach(motion=>{place(motion.node,motion.end,motion.endWidth);motion.node?.classList.remove('moving');});resolve();};
     const finished=new Promise(done=>{resolve=done;});
     const duration=lead+Math.max(0,...motions.map(motion=>motion.delay+motion.duration));
-    targets.forEach(motion=>{place(motion.node,motion.start);motion.node?.classList.add('moving');});
+    targets.forEach(motion=>{place(motion.node,motion.start,motion.startWidth);motion.node?.classList.add('moving');});
     function tick(now){
       if(cancelled)return;const elapsed=now-begun;
       for(const motion of targets){
         let time=elapsed-lead-motion.delay, from=motion.start;
-        if(time<0){place(motion.node,from);continue;}
+        const width=motion.startWidth+(motion.endWidth-motion.startWidth)*Math.max(0,Math.min(1,time/(motion.duration||1)));
+        if(time<0){place(motion.node,from,motion.startWidth);continue;}
         for(let index=0;index<motion.segments.length;index++){
           const segment=motion.segments[index];
           if(!motion.sounded.has(index)){motion.sounded.add(index);if(segment.sound)options.onSound?.(segment.sound,segment.step||0);}
-          if(time<=segment.duration){const t=Math.min(1,time/segment.duration),ease=segment.linear?t:(1-Math.cos(t*Math.PI))/2;place(motion.node,[from[0]+(segment.to[0]-from[0])*ease,from[1]+(segment.to[1]-from[1])*ease-Math.sin(t*Math.PI)*(segment.hop||0)]);break;}
-          time-=segment.duration;from=segment.to;place(motion.node,from);
+          if(time<=segment.duration){const t=Math.min(1,time/segment.duration),ease=segment.linear?t:(1-Math.cos(t*Math.PI))/2;place(motion.node,[from[0]+(segment.to[0]-from[0])*ease,from[1]+(segment.to[1]-from[1])*ease-Math.sin(t*Math.PI)*(segment.hop||0)],width);break;}
+          time-=segment.duration;from=segment.to;place(motion.node,from,width);
         }
       }
       if(elapsed>=duration){finish();return;}frame=root.requestAnimationFrame(tick);

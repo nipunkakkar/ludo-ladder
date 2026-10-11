@@ -92,7 +92,7 @@
     if (progress === -1) {
       const bases = { red: [0,0], green: [0,9], yellow: [9,9], blue: [9,0] };
       const [row, col] = bases[color];
-      return [row + 1.9 + Math.floor(token / 2) * 2.2, col + 1.9 + (token % 2) * 2.2];
+      return [row + 1.5 + Math.floor(token / 2) * 2, col + 1.5 + (token % 2) * 2];
     }
     if (progress <= 50) return TRACK[(OFFSET[color] + progress) % 52];
     const step = progress - 51;
