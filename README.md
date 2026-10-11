@@ -7,7 +7,7 @@ A small, colourful game-night website for **Ludo** and **Snakes & Ladders**. Cho
 1. Choose a game and player count, enter your name and select **Create private room**.
 2. Friends open the same website, enter their names and the code, and select **Join room**.
 3. Guests select **I'm ready**. The host starts when all selected seats are ready.
-4. Roll on your turn. In Ludo, choose a highlighted token or its button under the dice. Snakes & Ladders moves your pawn automatically.
+4. Roll on your turn. In Ludo, a single legal move plays automatically; with multiple choices, choose a highlighted token or its button under the dice. Snakes & Ladders moves your pawn automatically.
 
 The host keeps their tab open: that browser holds the room and validates all rolls and moves. Refreshing or closing the host tab ends the room. Guest seats are reserved during a game; they can reconnect or reload and rejoin from the same tab. A dropped host connection can be restored using **Reconnect** while the original host tab remains open.
 
@@ -26,7 +26,7 @@ npm test
 npm run check
 ```
 
-The 22 automated tests cover game rules, room capacity and isolation, ready/start/turn validation, private packet routing, guest removal and reconnection. Actual browser clients have also been checked through the public relay.
+The 29 automated tests cover game rules, automatic moves and bonus turns, motion routes and captures, audio preferences, room capacity and isolation, ready/start/turn validation, private packet routing, guest removal and reconnection. Actual browser clients have also been checked through the public relay.
 
 ## Stack and hosting
 
@@ -38,7 +38,13 @@ The 22 automated tests cover game rules, room capacity and isolation, ready/star
 - Names are remembered in local storage. Rejoin identities are saved in session storage. No analytics or application database is included.
 - GitHub Pages serves the repository root directly from `main`. Asset URLs are relative, and `.nojekyll` is included. Changes to `main` automatically deploy to the same URL.
 
-The browser download is about 80 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
+The browser download is about 109 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
+
+## Sound and movement
+
+Music and game effects are enabled by default, with independent volume sliders and on/off buttons in **Sound settings**. Browsers allow sound after your first click, tap or keypress; preferences are remembered on this device. The mellow background loop is an original eight-bar composition synthesized with Web Audio, with no borrowed recordings or samples. Its audio material is dedicated to CC0. Sound pauses while the tab is hidden.
+
+Tokens hop through each square, glide up ladders and follow snakes down. Captured tokens return to their yards after the moving token arrives. The three-dimensional dice rolls beside the board, and **Table talk & recent moves** can be hidden or shown. Reduced-motion settings skip animated movement.
 
 ## Rules used
 
@@ -50,6 +56,6 @@ Rules are also available from the **?** button.
 
 ## Files
 
-`rules.js` contains game rules, `room.js` validates room commands, `network.js` connects browser clients, `boards.js` draws the boards and `app.js` controls the interface. `config.js` holds the public channel prefix, not a private service credential.
+`rules.js` contains game rules, `room.js` validates room commands, `network.js` connects browser clients, `boards.js` draws the boards, `motion.js` animates tokens, `audio.js` synthesizes music and effects, and `app.js` controls the interface. `config.js` holds the public channel prefix, not a private service credential.
 
 The artwork is original. Ludo King inspired the requested glossy board-game feel; this project is independent and uses none of its branding or assets.

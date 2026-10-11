@@ -28,7 +28,7 @@
     if (game.winner || game.pending || current(game).id !== id) throw new Error('Wait for your turn.');
     if (!Number.isInteger(die) || die < 1 || die > 6) throw new Error('Invalid dice roll.');
     const player = current(game);
-    game.lastDie = { value: die, player: id };
+    game.lastDie = { value: die, player: id, id: game.actionId + 1 };
     game.actionId += 1;
     game.action = { type: 'roll', player: id, die, id: game.actionId, note: `${player.name} rolled ${die}.` };
     if (game.type === 'snakes') {
@@ -101,10 +101,19 @@
     if (color === 'yellow') return [7, 13 - step];
     return [13 - step, 7];
   }
+  function autoMove(game, id) {
+    const moves = legal(game);
+    if (moves.length !== 1 || current(game).id !== id) return false;
+    move(game, id, moves[0]);
+    game.action.automatic = true;
+    game.action.note += ' (automatic move)';
+    game.log[0] = game.action.note;
+    return true;
+  }
   function snakeCoordinate(square) {
     if (square <= 0) return [9.75, -0.08];
     const n = square - 1, band = Math.floor(n / 10), col = n % 10;
     return [9 - band, band % 2 ? 9 - col : col];
   }
-  return { COLORS, PALETTE, TRACK, SAFE, OFFSET, LADDER, SNAKE, cleanName, seats, create, current, legal, roll, move, coordinate, snakeCoordinate };
+  return { COLORS, PALETTE, TRACK, SAFE, OFFSET, LADDER, SNAKE, cleanName, seats, create, current, legal, roll, move, autoMove, coordinate, snakeCoordinate };
 });

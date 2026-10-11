@@ -51,7 +51,7 @@
         if (this.phase !== 'playing') throw new Error('The game is not running.');
         const active = Rules.current(this.game);
         if (!this.players.find(item => item.id === active.id)?.connected) throw new Error('Waiting for the current player to reconnect.');
-        if (command.type === 'roll') Rules.roll(this.game, id, this.dice());
+        if (command.type === 'roll') { Rules.roll(this.game, id, this.dice()); Rules.autoMove(this.game, id); }
         else Rules.move(this.game, id, command.token);
         if (this.game.winner) this.phase = 'won';
       } else if (command.type === 'rematch') {

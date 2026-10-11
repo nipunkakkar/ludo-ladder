@@ -41,7 +41,7 @@ for(const type of ['ludo','snakes'])test(`relay protocol validates ready, start,
   await host.connection.command({type:'roll'});await flush();
   if(type==='ludo'){
    assert.equal(guest.state.game.pending.die,6);await host.connection.command({type:'move',token:0});await flush();assert.equal(guest.state.game.players[0].tokens[0],0);
-   host.connection.host.dice=()=>1;await host.connection.command({type:'roll'});await host.connection.command({type:'move',token:0});await flush();
+   host.connection.host.dice=()=>1;await host.connection.command({type:'roll'});await flush();assert.equal(guest.state.game.action.automatic,true);assert.equal(guest.state.game.pending,null);
   }else assert.equal(guest.state.game.players[0].tokens[0],22);
   await guest.connection.command({type:'roll'});await flush();assert.deepEqual(normalize(guest.state),normalize(host.state));
   guest.connection.relay.close();await flush();assert.equal(host.state.players[1].connected,false);
