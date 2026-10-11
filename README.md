@@ -38,7 +38,7 @@ The 42 automated tests cover game rules, automatic moves and bonus turns, motion
 - Names are remembered in local storage. Rejoin identities are saved in session storage. No analytics or application database is included.
 - GitHub Pages serves the repository root directly from `main`. Asset URLs are relative, and `.nojekyll` is included. Changes to `main` automatically deploy to the same URL.
 
-The browser download is about 139 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
+The browser download is about 141 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
 
 ## Sound and movement
 
