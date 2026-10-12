@@ -15,7 +15,7 @@
   const seats = count => count === 2 ? ['red', 'yellow'] : COLORS.slice(0, count);
   function create(type, players) {
     if (!['ludo', 'snakes'].includes(type) || players.length < 2 || players.length > 4) throw new Error('Choose a game and 2–4 players.');
-    return { type, players: players.map(player => ({ id: player.id, name: cleanName(player.name), color: player.color, tokens: type === 'ludo' ? [-1,-1,-1,-1] : [0] })), turn: 0, pending: null, lastDie: null, sixes: 0, winner: null, action: null, actionId: 0, log: ['Game on. Good luck, everyone!'] };
+    return { type, players: players.map(player => ({ id: player.id, name: cleanName(player.name), color: player.color, tokens: type === 'ludo' ? [-1,-1,-1,-1] : [0] })), turn: 0, pending: null, lastDie: null, sixes: 0, winner: null, action: null, actionId: 0, rollCount:0, snakes:type==='snakes'?Object.entries(SNAKE).map(([head,tail],index)=>({id:'snake-'+index,head:Number(head),tail})):null, log: ['Game on. Good luck, everyone!'] };
   }
   function current(game) { return game.players[game.turn]; }
   function addLog(game, text) { game.log.unshift(text); game.log = game.log.slice(0, 8); }
@@ -24,10 +24,11 @@
     if (game.type !== 'ludo' || !game.pending || game.winner) return [];
     return current(game).tokens.map((progress, index) => progress === -1 ? (game.pending.die === 6 ? index : -1) : progress < 56 && progress + game.pending.die <= 56 ? index : -1).filter(index => index >= 0);
   }
-  function roll(game, id, die) {
+  function roll(game, id, die, randomIndex = length => Math.floor(Math.random()*length)) {
     if (game.winner || game.pending || current(game).id !== id) throw new Error('Wait for your turn.');
     if (!Number.isInteger(die) || die < 1 || die > 6) throw new Error('Invalid dice roll.');
     const player = current(game);
+    game.rollCount=(game.rollCount||0)+1;
     game.lastDie = { value: die, player: id, id: game.actionId + 1 };
     game.actionId += 1;
     game.action = { type: 'roll', player: id, die, id: game.actionId, note: `${player.name} rolled ${die}.` };
@@ -36,14 +37,14 @@
       const landing = from + die;
       if (landing > 100) {
         game.action.note = `${player.name} needs ${100 - from} to finish. Turn passes.`;
-        addLog(game, game.action.note); next(game); return;
+        if(game.rollCount%4===0)shiftSnake(game,randomIndex);addLog(game, game.action.note); next(game); return;
       }
-      const destination = LADDER[landing] || SNAKE[landing] || landing;
+      const snake=(game.snakes||[]).find(item=>item.head===landing),destination=LADDER[landing] || snake?.tail || landing;
       player.tokens[0] = destination;
       game.action = { ...game.action, type: 'snakes-move', from, landing, to: destination, jump: destination > landing ? 'ladder' : destination < landing ? 'snake' : null };
       game.action.note = destination > landing ? `${player.name} climbed ${landing} → ${destination}!` : destination < landing ? `${player.name} slid ${landing} → ${destination}. Ouch!` : `${player.name} moved to ${destination}.`;
       if (destination === 100) { game.winner = id; game.action.note = `${player.name} reached 100 and wins!`; }
-      else next(game);
+      else {if(game.rollCount%4===0)shiftSnake(game,randomIndex);next(game);}
       addLog(game, game.action.note); return;
     }
     game.sixes = die === 6 ? game.sixes + 1 : 0;
@@ -58,6 +59,17 @@
       if (die !== 6) next(game);
     }
     addLog(game, game.action.note);
+  }
+  function shiftSnake(game,randomIndex){
+    if(game.winner || !game.snakes?.length)return;
+    const blocked=new Set([100,...Object.keys(LADDER).map(Number),...Object.values(LADDER),...game.snakes.map(item=>item.head),...game.snakes.map(item=>item.tail)]);
+    const choices=game.snakes.map((snake,index)=>({snake,index,heads:Array.from({length:10},(_,offset)=>Math.floor((snake.head-1)/10)*10+offset+1).filter(square=>!blocked.has(square) && square>snake.tail)})).filter(item=>item.heads.length);
+    if(!choices.length)return;
+    const choice=choices[randomIndex(choices.length)],from=choice.snake.head,to=choice.heads[randomIndex(choice.heads.length)],players=[];
+    choice.snake.head=to;
+    for(const player of game.players)if(player.tokens[0]===to){player.tokens[0]=choice.snake.tail;players.push({player:player.id,from:to,to:choice.snake.tail,token:0});}
+    game.action.snakeShift={id:choice.snake.id,index:choice.index,from,to,tail:choice.snake.tail,players};
+    game.action.note+=` A snake moved ${from} → ${to}!${players.length?' '+players.map(item=>game.players.find(player=>player.id===item.player).name).join(' and ')+' slid to '+choice.snake.tail+'.':''}`;
   }
   function move(game, id, token) {
     if (game.type !== 'ludo' || current(game).id !== id || !game.pending || !legal(game).includes(token)) throw new Error('Choose one of your glowing tokens.');

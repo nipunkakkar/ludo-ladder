@@ -2,8 +2,10 @@
   'use strict';
   const {Room}=window.RoomRules, config=window.LUDO_LADDER_CONFIG;
   const hostAlias='ludo-ladder-host', guestAlias='ludo-ladder-guest';
+  const usedCodes=new Set();
   function randomString(length){const bytes=crypto.getRandomValues(new Uint8Array(length));return [...bytes].map(byte=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[byte%32]).join('');}
   function dice(){const value=new Uint8Array(1);do{crypto.getRandomValues(value);}while(value[0]>=252);return value[0]%6+1;}
+  function randomIndex(length){const value=new Uint8Array(1),limit=256-256%length;do{crypto.getRandomValues(value);}while(value[0]>=limit);return value[0]%length;}
   function seat(code){
     try{const value=JSON.parse(sessionStorage.getItem('rt-seat-'+code));if(value?.id && value?.secret)return value;}catch{/* Storage is optional. */}
     const value={id:crypto.randomUUID(),secret:crypto.randomUUID()+crypto.randomUUID()};
@@ -13,7 +15,7 @@
   class Connection {
     constructor(onState,onStatus){
       this.onState=onState;this.onStatus=onStatus;this.state=null;this.host=null;this.relay=null;this.id=null;
-      this.connections=new Map();this.bindings=new Map();this.proofs=new Map();this.requests=new Map();this.local=false;this.disposed=false;this.connected=false;
+      this.connections=new Map();this.bindings=new Map();this.proofs=new Map();this.requests=new Map();this.local=false;this.disposed=false;this.connected=false;this.finished=false;
     }
     announce(text,tone='info'){this.onStatus(text,tone);}
     setState(state){if(!state || state.code!==this.code || !Array.isArray(state.players) || (this.state && state.version<this.state.version))return;this.state=state;this.onState(state);}
@@ -32,7 +34,7 @@
             opened=true;clearTimeout(timer);this.connected=true;this.uid=event.uid;
             const hosts=(event.users||[]).filter(user=>user.uid!==this.uid && user.alias===hostAlias);
             if(this.host && hosts.length && !this.state){reject(new Error('This room code is already in use. Create another room.'));return;}
-            if(!this.host){if(hosts.length!==1){reject(new Error('Room not found. Check the code and ask the host to keep their tab open.'));return;}this.hostUid=hosts[0].uid;}
+            if(!this.host){if(hosts.length!==1){reject(new Error('Room not found. The code may have expired. Check it with the host or create a new room.'));return;}this.hostUid=hosts[0].uid;}
             else if(this.state){
               const present=new Set((event.users||[]).map(user=>user.uid));
               for(const [id,uid]of this.connections){if(!present.has(uid)){this.connections.delete(id);this.bindings.delete(uid);this.host.disconnect(id);}else this.send({kind:'host-return',hostId:this.id,proof:this.proofs.get(id)},uid);}
@@ -69,7 +71,7 @@
             this.connections.set(guest.id,uid);this.bindings.set(uid,guest.id);if(!this.proofs.has(guest.id))this.proofs.set(guest.id,crypto.randomUUID()+crypto.randomUUID());this.broadcast();this.send({kind:'ack',request:data.request},uid);
           }else if(data.kind==='command'){
             const id=this.bindings.get(uid);if(!id)throw new Error('Join the room first.');
-            this.host.command(id,data.command);this.broadcast();this.send({kind:'ack',request:data.request},uid);
+            this.host.command(id,data.command);this.broadcast();this.send({kind:'ack',request:data.request},uid);if(this.host.phase==='won')this.finish();
           }else if(data.kind==='leave'){
             const id=this.bindings.get(uid);if(id){this.bindings.delete(uid);this.connections.delete(id);this.host.disconnect(id,true);this.broadcast();}
           }
@@ -77,7 +79,7 @@
       }else{
         if(data.kind==='host-return' && this.state?.connectionLost && data.hostId===this.state.hostId && data.proof===this.hostProof && event.alias===hostAlias){this.hostUid=uid;this.request({kind:'join',name:this.name,identity:this.identity}).then(()=>this.announce('Connected','good')).catch(error=>this.announce(error.message,'bad'));return;}
         if(uid!==this.hostUid)return;
-        if(data.kind==='state'){if(!this.hostProof)this.hostProof=data.proof;if(data.proof!==this.hostProof)return;this.setState(data.state);if(!data.state.connectionLost)this.announce('Connected','good');}
+        if(data.kind==='state'){if(!this.hostProof)this.hostProof=data.proof;if(data.proof!==this.hostProof)return;this.setState(data.state);if(data.state.roomClosed && data.state.phase==='won')this.finish();else if(!data.state.connectionLost)this.announce('Connected','good');}
         else if(data.kind==='ack'){this.requests.get(data.request)?.resolve();this.requests.delete(data.request);}
         else if(data.kind==='error'){const error=new Error(String(data.message||'The action could not be completed.'));if(this.requests.has(data.request)){this.requests.get(data.request).reject(error);this.requests.delete(data.request);}else this.announce(error.message,'bad');}
         else if(data.kind==='closed'){this.disposed=true;this.announce(data.message||'The host closed this room.','bad');if(this.state)this.setState({...this.state,connectionLost:true});this.rejectRequests(new Error('Room closed.'));this.relay.close();}
@@ -92,8 +94,8 @@
       });
     }
     async create(type,capacity,name,local=false){
-      this.local=local;this.name=name;this.code=local?'LOCAL':randomString(6);this.identity=seat(this.code);this.id=this.identity.id;
-      this.host=new Room({code:this.code,type,capacity,name,hostId:this.id,secret:this.identity.secret,dice});
+      this.local=local;this.name=name;if(local)this.code='LOCAL';else{do{this.code=randomString(6);}while(usedCodes.has(this.code));usedCodes.add(this.code);}this.identity=seat(this.code);this.id=this.identity.id;
+      this.host=new Room({code:this.code,type,capacity,name,hostId:this.id,secret:this.identity.secret,dice,randomIndex});
       if(local){for(let index=1;index<capacity;index++){const guest=this.host.join({id:crypto.randomUUID(),name:'Player '+(index+1),secret:crypto.randomUUID()});guest.ready=true;}this.host.command(this.id,{type:'start',version:this.host.version});this.broadcast();return;}
       await this.openRelay();this.broadcast();this.announce('Room open. Invite your friends.','good');
     }
@@ -102,6 +104,7 @@
       await this.openRelay();await this.request({kind:'join',name,identity:this.identity});this.announce('Connected','good');
     }
     async reconnect(){
+      if(this.finished)throw new Error('This game is finished. The room code has expired. Create a new room.');
       if(this.local || this.disposed)return;
       const previous=this.relay;this.relay=null;this.connected=false;this.rejectRequests(new Error('Reconnecting. Try your action again once connected.'));previous?.close();
       await this.openRelay();if(this.host)this.broadcast();else await this.request({kind:'join',name:this.name,identity:this.identity});this.announce('Connected','good');
@@ -113,9 +116,21 @@
         const actor=this.local && this.host.game && ['roll','move'].includes(command.type)?window.BoardRules.current(this.host.game).id:this.id;
         this.host.command(actor,command);
         if(command.type==='remove'){const uid=this.connections.get(command.player);this.connections.delete(command.player);this.bindings.delete(uid);this.proofs.delete(command.player);if(uid)this.send({kind:'closed',message:'The host removed your seat from the lobby.'},uid);}
-        this.broadcast();return;
+        this.broadcast();if(this.host.phase==='won')this.finish();return;
       }
       await this.request({kind:'command',command});
+    }
+    finish(){
+      if(this.finished)return;
+      this.finished=true;this.disposed=true;this.connected=false;
+      if(!this.local)usedCodes.add(this.code);
+      // The final authoritative snapshot completes the winning command before
+      // sockets close. Keep only the read-only result on screen, not a live room.
+      for(const request of this.requests.values())request.resolve();this.requests.clear();
+      const relay=this.relay;this.relay=null;relay?.close();
+      this.connections.clear();this.bindings.clear();this.proofs.clear();this.host=null;this.identity=null;this.hostProof=null;
+      try{sessionStorage.removeItem('rt-seat-'+this.code);}catch{/* Storage is optional. */}
+      this.announce('Game complete. This room code has expired.','good');
     }
     close(){
       if(this.connected && !this.disposed){if(this.host){for(const uid of this.connections.values())this.send({kind:'closed',message:'The host closed this room. Create or join another room.'},uid);}else if(this.hostUid)this.send({kind:'leave'},this.hostUid);}

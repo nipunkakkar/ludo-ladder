@@ -22,6 +22,7 @@
     capture:[[50,0,.24,'triangle'],[62,.04,.17,'square'],[57,.16,.18,'triangle'],[50,.28,.22,'triangle']],
     finish:[[72,0,.3,'triangle'],[76,0,.3,'sine'],[79,.1,.22,'sine'],[84,.25,.25,'triangle']],
     'race-start':[[60,0,.13,'triangle'],[67,.12,.13,'triangle'],[72,.24,.26,'sine']],
+    'head-shift':[[69,0,.13,'triangle'],[70,.09,.13,'triangle'],[76,.18,.13,'sine'],[71,.27,.23,'triangle']],
     ladder:[[72,0,.13,'sine'],[76,.08,.13,'sine'],[79,.16,.13,'triangle'],[84,.24,.13,'triangle'],[88,.32,.18,'sine']],
     snake:[[83,0,.14,'triangle'],[77,.08,.14,'triangle'],[71,.16,.14,'triangle'],[65,.24,.14,'sine'],[53,.32,.18,'sine']],
     tension:[[62,0,.13,'triangle'],[63,.1,.13,'triangle'],[62,.2,.13,'triangle'],[69,.32,.18,'sine']],

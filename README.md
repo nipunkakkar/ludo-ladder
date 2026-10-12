@@ -9,7 +9,7 @@ A small, colourful game-night website for **Ludo** and **Snakes & Ladders**. Cho
 3. Guests select **I'm ready**. The host starts when all selected seats are ready.
 4. Roll on your turn. In Ludo, a single legal move plays automatically; with multiple choices, choose a highlighted token or its button under the dice. Snakes & Ladders moves your pawn automatically.
 
-The host keeps their tab open: that browser holds the room and validates all rolls and moves. Refreshing or closing the host tab ends the room. Guest seats are reserved during a game; they can reconnect or reload and rejoin from the same tab. A dropped host connection can be restored using **Reconnect** while the original host tab remains open.
+The selected player count includes the host: a 2-player room has the host and one guest, a 3-player room has two guests, and a 4-player room has three guests. Extra new players are refused once all seats are filled, and only admitted players can reconnect while a game is active. The host keeps their tab open: that browser holds the room and validates all rolls and moves. Refreshing or closing the host tab ends the room. Guest seats are reserved during a game; they can reconnect or reload and rejoin from the same tab. A dropped host connection can be restored using **Reconnect** while the original host tab remains open and the game is active. After a win, the host sends the final result to everyone and closes the live room. Its code stops accepting new joins or former-player reconnects. The final board remains as a read-only result. **New game** creates a fresh room and code; it does not reopen the finished room.
 
 ## Run locally
 
@@ -26,7 +26,7 @@ npm test
 npm run check
 ```
 
-The 42 automated tests cover game rules, automatic moves and bonus turns, motion routes and captures, audio preferences, quiet routine moves, highlight milestones and jump timing, room capacity and isolation, ready/start/turn validation, private packet routing, guest removal and reconnection. Actual browser clients have also been checked through the public relay.
+The 59 automated tests cover game rules, automatic moves and bonus turns, motion routes and captures, audio preferences, quiet routine moves, highlight milestones and jump timing, room capacity and isolation, ready/start/turn validation, private packet routing, guest removal and reconnection, exact 2/3/4-player capacity, final result delivery, expired room codes, moving snake mouths, caught pawns and synchronized relocation. Actual browser clients have also been checked through the public relay.
 
 ## Stack and hosting
 
@@ -38,21 +38,21 @@ The 42 automated tests cover game rules, automatic moves and bonus turns, motion
 - Names are remembered in local storage. Rejoin identities are saved in session storage. No analytics or application database is included.
 - GitHub Pages serves the repository root directly from `main`. Asset URLs are relative, and `.nojekyll` is included. Changes to `main` automatically deploy to the same URL.
 
-The browser download is about 141 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
+The browser download is about 153 KB before compression. `npm install` is optional and restores the pinned upstream connection client for development. Test and development files are not loaded by the website.
 
 ## Sound and movement
 
 Music and game effects are enabled by default, with independent volume sliders and on/off buttons in **Sound settings**. Browsers allow sound after your first click, tap or keypress; preferences are remembered on this device. Choose among five original Web Audio compositions: Soft Glow (76 BPM), Late Night Café (92 BPM), Sunny Bounce (112 BPM), Neon Sprint (132 BPM) and Final Round (152 BPM). All use synthesis, with no borrowed recordings or samples. The selected music style is remembered independently on each device. Its audio material is dedicated to CC0. Sound pauses while the tab is hidden. New-token releases, captures and token finishes each have a different half-second musical cue, with sample buttons under Sound settings. Snakes & Ladders has its own race-start, rising ladder, descending snake and winning cues. Sound samples change with the selected game. Both games share all five music choices. Every cue respects the game effects slider and mute.
 
-Tokens hop through each square, glide up ladders and follow snakes down. Captured tokens return to their yards after the moving token arrives. The three-dimensional dice rolls beside the board, and **Table talk & recent moves** can be hidden or shown. Reduced-motion settings skip animated movement. Shared geometry centres pawns in their squares and scales stacks to stay inside the cell. Yard slots form a symmetric grid.
+Tokens hop through each square, glide up ladders and follow snakes down. The Snakes & Ladders board uses original shaded, tapered snakes, wooden rails and rungs with brass caps, and contrasting number labels. Drawing and sliding share the same snake centre line. Captured tokens return to their yards after the moving token arrives. The three-dimensional dice rolls beside the board, and **Table talk & recent moves** can be hidden or shown. Reduced-motion settings skip animated movement. Shared geometry centres pawns in their squares and scales stacks to stay inside the cell. Yard slots form a symmetric grid.
 
-Milo, the original illustrated table host, reacts only to big moments with short, varied jokes: Ludo releases, captures, token finishes, the home stretch, close finishes and three consecutive sixes; Snakes & Ladders starts, climbs, slides, the final row, late lead changes and wins. Ordinary rolls, no-move turns, overshoots and routine steps stay quiet. The bubble labels the last big moment. Climb and slide reactions and musical cues start as the pawn enters the ladder or snake, with a brief board glow and character reaction. Optional spoken reactions use an installed local English browser voice when available; text always works. The voice button and game-effects mute both silence spoken reactions. Rejoining or receiving an unchanged snapshot does not replay earlier commentary.
+Milo, the original illustrated table host, reacts only to big moments with short, varied, name-free jokes and a quicker, slightly higher-pitched voice: Ludo releases, captures, token finishes, the home stretch, close finishes and three consecutive sixes; Snakes & Ladders starts, climbs, slides, the final row, late lead changes, moving snake surprises and wins. Ordinary rolls, no-move turns, overshoots and routine steps stay quiet. The bubble labels the last big moment. Climb and slide reactions and musical cues start as the pawn enters the ladder or snake, with a brief board glow and character reaction. Optional spoken reactions use an installed local English browser voice when available; text always works. The voice button and game-effects mute both silence spoken reactions. Rejoining or receiving an unchanged snapshot does not replay earlier commentary.
 
 ## Rules used
 
 **Ludo:** a six releases a token. Sixes, captures and reaching home earn another roll; three consecutive sixes end the turn. Coloured start squares and stars are safe. Landing on an unsafe square captures opposing tokens there. Stacks do not block passage. Each token needs an exact roll to finish, and the first player with all four home wins. Two players use opposite colours.
 
-**Snakes & Ladders:** start at zero and follow the numbered zigzag track. Landing at a ladder's foot climbs it; landing on a snake's head slides down. Every roll passes the turn, including a six. Reach 100 exactly to win; an overshoot stays in place.
+**Snakes & Ladders:** start at zero and follow the numbered zigzag track. Landing at a ladder's foot climbs it; landing on a snake's current mouth slides down. Every four rolls, one randomly selected snake moves its mouth to another valid square in the same row, keeping its tail fixed. Pawns already on that new mouth slide to the tail. The mouth avoids other snake mouths, tails, ladder endpoints and square 100. Everyone receives the same host-selected change. A roll animates first, then the snake shifts, then caught pawns slide. The counter under the dice shows when the next shift is due. Every roll passes the turn, including a six. Reach 100 exactly to win; an overshoot stays in place. A winning roll ends the room before any scheduled shift.
 
 Rules are also available from the **?** button.
 

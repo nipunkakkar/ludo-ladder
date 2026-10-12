@@ -27,7 +27,7 @@ function transport(){
 }
 function client(relay,storage=new Map()){
  let latest;const window={BoardRules,RoomRules,LudoRelay:relay,LUDO_LADDER_CONFIG:{roomPrefix:'test-ll-'}};
- vm.runInNewContext(source,{window,crypto:webcrypto,setTimeout,clearTimeout,sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)}});
+ vm.runInNewContext(source,{window,crypto:webcrypto,setTimeout,clearTimeout,sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)}});
  return {connection:new window.RoomNetwork.Connection(state=>{latest=state;},()=>{}),storage,get state(){return latest;}};
 }
 for(const type of ['ludo','snakes'])test(`relay protocol validates ready, start, turns and reconnect for ${type}`,async()=>{
@@ -73,4 +73,34 @@ test('host connection can return without losing the shared game',async()=>{
 });
 test('missing rooms reject promptly instead of waiting for an unreachable peer',async()=>{
  const guest=client(transport());try{await assert.rejects(guest.connection.join('ABC234','Guest'),/Room not found/);}finally{guest.connection.close();}
+});
+
+for(const capacity of [2,3,4])test(`${capacity}-player rooms include the host and reject one extra guest`,async()=>{
+ const relay=transport(),host=client(relay),guests=Array.from({length:capacity},()=>client(relay));
+ try{
+  await host.connection.create('snakes',capacity,'Host');for(let i=0;i<capacity-1;i++)await guests[i].connection.join(host.state.code,'Guest '+i);
+  assert.equal(host.state.players.length,capacity);await assert.rejects(guests.at(-1).connection.join(host.state.code,'Extra'),/full/);assert.equal(host.state.players.length,capacity);
+  for(let i=0;i<capacity-1;i++)await guests[i].connection.command({type:'ready',ready:true});await host.connection.command({type:'start'});await flush();
+  const another=client(relay);try{await assert.rejects(another.connection.join(host.state.code,'Late'),/already started/);}finally{another.connection.close();}
+ }finally{host.connection.close();guests.forEach(guest=>guest.connection.close());}
+});
+for(const type of ['ludo','snakes'])for(const winner of ['host','guest'])test(`${type} ${winner} win closes every client and expires the room code`,async()=>{
+ const relay=transport(),host=client(relay),guest=client(relay),newcomer=client(relay);let code;
+ try{
+  await host.connection.create(type,2,'Host');code=host.state.code;await guest.connection.join(code,'Guest');await guest.connection.command({type:'ready',ready:true});await host.connection.command({type:'start'});await flush();
+  const index=winner==='host'?0:1,actor=winner==='host'?host:guest;host.connection.host.game.turn=index;host.connection.host.game.players[index].tokens=type==='ludo'?[56,56,56,55]:[99];host.connection.host.dice=()=>1;host.connection.broadcast();await flush();
+  await actor.connection.command({type:'roll'});await flush();assert.equal(host.state.phase,'won');assert.equal(guest.state.phase,'won');assert.equal(guest.state.game.winner,actor.connection.id);assert.equal(host.state.roomClosed,true);
+  for(const player of [host,guest]){assert.equal(player.connection.finished,true);assert.equal(player.connection.disposed,true);assert.equal(player.connection.relay,null);assert.equal(player.connection.host,null);assert.equal(player.state.connectionLost,undefined);assert.equal(player.storage.has('rt-seat-'+code),false);await assert.rejects(player.connection.reconnect(),/expired/);await assert.rejects(player.connection.command({type:'rematch'}));}
+  await assert.rejects(newcomer.connection.join(code,'New guest'),/Room not found/);newcomer.connection.close();
+  const oldGuest=client(relay,guest.storage);try{await assert.rejects(oldGuest.connection.join(code,'Guest'),/Room not found/);}finally{oldGuest.connection.close();}
+  const fresh=client(relay);try{await fresh.connection.create(type,2,'Host');assert.notEqual(fresh.state.code,code);assert.equal(fresh.state.phase,'lobby');}finally{fresh.connection.close();}
+ }finally{host.connection.close();guest.connection.close();newcomer.connection.close();}
+});
+test('moving snakes and caught pawns are chosen by the host and replicated to all clients',async()=>{
+ const relay=transport(),host=client(relay),guest=client(relay);
+ try{
+  await host.connection.create('snakes',2,'Host');await guest.connection.join(host.state.code,'Guest');await guest.connection.command({type:'ready',ready:true});await host.connection.command({type:'start'});await flush();
+  host.connection.host.game.rollCount=3;host.connection.host.game.players[0].tokens=[1];host.connection.host.game.players[1].tokens=[11];host.connection.host.dice=()=>1;host.connection.host.randomIndex=()=>0;host.connection.broadcast();await flush();
+  await host.connection.command({type:'roll',snakeShift:{to:99},die:6});await flush();assert.equal(host.state.game.action.snakeShift.to,11);assert.equal(guest.state.game.players[1].tokens[0],7);assert.deepEqual(normalize(host.state),normalize(guest.state));assert.equal(guest.state.phase,'playing');
+ }finally{host.connection.close();guest.connection.close();}
 });

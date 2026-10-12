@@ -46,36 +46,53 @@
     out += tokenMarkup(game,me,id,local,animate);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 660" class="game-board ludo-board" role="group" aria-label="Ludo board">${out}</svg>`;
   }
-  function snakePoint(square) { const [r,c]=R.snakeCoordinate(square); return [24+(c+.5)*61.2,24+(r+.5)*61.2]; }
+  function snakePoint(square) { return window.BoardGeometry.center('snakes','red',square); }
+  const snakeColours=[['#78d5ad','#23977c','#176b5c'],['#ffc27b','#ed8744','#975124'],['#88c5f3','#4596d5','#245a8c'],['#d3a7ed','#a675cf','#68438d'],['#ffa6b6','#e96f94','#9a3f62'],['#bce680','#79bc54','#4d7b31']];
+  function snakeDefs(id){
+    return `<defs><linearGradient id="${id}-ladder-rail"><stop stop-color="#aa6e31"/><stop offset=".24" stop-color="#edbf76"/><stop offset=".52" stop-color="#d39851"/><stop offset="1" stop-color="#875128"/></linearGradient><linearGradient id="${id}-ladder-rung" x2="0" y2="1"><stop stop-color="#ffe0a1"/><stop offset=".3" stop-color="#edbd72"/><stop offset="1" stop-color="#a3662e"/></linearGradient><linearGradient id="${id}-brass" x2="1" y2="1"><stop stop-color="#ffe9ac"/><stop offset=".5" stop-color="#d6ad58"/><stop offset="1" stop-color="#b08037"/></linearGradient><linearGradient id="${id}-finish" x2="1" y2="1"><stop stop-color="#fff2b1"/><stop offset="1" stop-color="#f3d57d"/></linearGradient>${snakeColours.map((colours,index)=>`<linearGradient id="${id}-snake-${index}" x2="1" y2=".55"><stop stop-color="${colours[0]}"/><stop offset=".45" stop-color="${colours[1]}"/><stop offset="1" stop-color="${colours[2]}"/></linearGradient><radialGradient id="${id}-head-${index}" cx=".3" cy=".25" r=".9"><stop stop-color="${colours[0]}"/><stop offset=".5" stop-color="${colours[1]}"/><stop offset="1" stop-color="${colours[2]}"/></radialGradient>`).join('')}</defs>`;
+  }
+  function ladderArt(from,to,id){
+    const [x,y]=snakePoint(from),[tx,ty]=snakePoint(to),length=Math.hypot(tx-x,ty-y),angle=Math.atan2(ty-y,tx-x)*180/Math.PI+90,count=Math.max(2,Math.floor(length/24));
+    let art=`<g class="board-ladder" data-from="${from}" data-to="${to}" transform="translate(${x} ${y}) rotate(${angle})"><rect x="-15" y="${-length-5}" width="8" height="${length+14}" rx="4" fill="#654224" opacity=".16" transform="translate(3 4)"/><rect x="11" y="${-length-5}" width="8" height="${length+14}" rx="4" fill="#654224" opacity=".16" transform="translate(3 4)"/>`;
+    for(let step=1;step<=count;step++){
+      const at=-length*step/(count+1);
+      art+=`<rect x="-14" y="${at-3}" width="28" height="8" rx="2.5" fill="url(#${id}-ladder-rung)" stroke="#a87336" stroke-width=".9"/><path d="M-11 ${at-1}h22" stroke="#fff0c9" stroke-width="1.3" opacity=".8" stroke-linecap="round"/>`;
+    }
+    for(const side of [-13,13]){
+      art+=`<rect x="${side-4}" y="${-length-7}" width="8" height="${length+14}" rx="4" fill="url(#${id}-ladder-rail)" stroke="#92602f" stroke-width="1"/><path d="M${side-1.8} -2v${-length+4}" stroke="#fff1cb" stroke-opacity=".7" stroke-width="1.4" stroke-linecap="round"/>`;
+      for(const cap of [-length-4,-6])art+=`<rect x="${side-4.5}" y="${cap}" width="9" height="10" rx="2.5" fill="url(#${id}-brass)" stroke="#ae823f" stroke-width=".7"/><circle cx="${side}" cy="${cap+5}" r="1.4" fill="#9a6c36"/><path d="M${side-1} ${cap+5}h2" stroke="#ffecc0" stroke-width=".7"/>`;
+    }
+    return art+'</g>';
+  }
+  function snakeArt(from,to,index,id,headPoint=null,snakeId='snake-'+index){
+    const points=window.BoardGeometry.snakeCurve(headPoint||snakePoint(from),snakePoint(to)),colour=snakeColours[index%snakeColours.length],left=[],right=[],shine=[];
+    for(let i=0;i<points.length;i++){
+      const prev=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)],dx=next[0]-prev[0],dy=next[1]-prev[1],length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length,t=i/(points.length-1),radius=1.3+8.5*Math.pow(1-t,.65);
+      left.push([points[i][0]+nx*radius,points[i][1]+ny*radius]);right.push([points[i][0]-nx*radius,points[i][1]-ny*radius]);shine.push([points[i][0]-nx*radius*.35,points[i][1]-ny*radius*.35]);
+    }
+    const outline='M'+left.concat(right.reverse()).map(point=>point.join(',')).join('L')+'Z',shinePath='M'+shine.map(point=>point.join(',')).join('L');
+    let art=`<g class="board-snake" data-snake-id="${snakeId}" data-from="${from}" data-to="${to}"><path d="${outline}" fill="#284839" opacity=".17" transform="translate(2 3)"/><path d="${outline}" fill="url(#${id}-snake-${index})" stroke="${colour[2]}" stroke-width="1.6" stroke-linejoin="round"/><path d="${shinePath}" fill="none" stroke="${colour[0]}" stroke-width="3" stroke-opacity=".8" stroke-linecap="round"/>`;
+    for(let i=3;i<points.length-3;i+=3){const [x,y]=points[i],scale=2.2*(1-i/points.length)+.3;art+=`<ellipse cx="${x}" cy="${y}" rx="${scale}" ry="${scale*.65}" fill="#fff4c1" opacity=".45"/>`;}
+    const [x,y]=points[0],angle=Math.atan2(y-points[1][1],x-points[1][0])*180/Math.PI;
+    art+=`<g transform="translate(${x} ${y}) rotate(${angle})"><path d="M-12-10C-2-18 13-16 20-5Q25 0 20 5C13 16-2 18-12 10Q-18 0-12-10Z" fill="url(#${id}-head-${index})" stroke="${colour[2]}" stroke-width="1.5"/><path d="M21 0h9m0 0 4-3m-4 3 4 3" fill="none" stroke="#d94870" stroke-width="2" stroke-linecap="round"/><ellipse cx="-5" cy="-5" rx="5" ry="2.5" fill="${colour[0]}" opacity=".8"/><circle cx="6" cy="-8" r="4.6" fill="#fffbea" stroke="${colour[2]}" stroke-width=".8"/><circle cx="6" cy="8" r="4.6" fill="#fffbea" stroke="${colour[2]}" stroke-width=".8"/><ellipse cx="7.5" cy="-8" rx="1.8" ry="2.7" fill="#293c40"/><ellipse cx="7.5" cy="8" rx="1.8" ry="2.7" fill="#293c40"/><circle cx="8" cy="-9" r=".8" fill="#fff"/><circle cx="8" cy="7" r=".8" fill="#fff"/><circle cx="16" cy="-3" r="1" fill="${colour[2]}"/><circle cx="16" cy="3" r="1" fill="${colour[2]}"/><path d="M11 11q5-1 7-5" fill="none" stroke="${colour[2]}" stroke-width="1" stroke-linecap="round"/></g></g>`;
+    return art;
+  }
   function snakes(game, me='', id='snakes', local=false, animate=null) {
-    let out = defs(id)+frame(id);
-    const tiles=['#f3eed5','#dfebd6','#f8edcf','#dce8dc'];
-    for(let square=1;square<=100;square++) {
-      const [r,c]=R.snakeCoordinate(square), x=24+c*61.2, y=24+r*61.2;
-      out += `<rect x="${x}" y="${y}" width="61.2" height="61.2" fill="${tiles[(r+c)%4]}" stroke="#fff9e9" stroke-width="1"/><text x="${x+7}" y="${y+16}" font-size="13" font-weight="650" fill="#6b7d68">${square}</text>`;
+    let out=defs(id)+snakeDefs(id)+frame(id),numbers='';
+    const tiles=['#fff5dd','#d6ebd3','#ffebcc','#cbe7dc'];
+    for(let square=1;square<=100;square++){
+      const [r,c]=R.snakeCoordinate(square),x=24+c*61.2,y=24+r*61.2;
+      out+=`<rect data-square="${square}" x="${x}" y="${y}" width="61.2" height="61.2" fill="${square===100?`url(#${id}-finish)`:tiles[(r+c)%4]}" stroke="#fffdf0" stroke-width="1.6"/><path d="M${x+2} ${y+2}h57" stroke="#fff" stroke-opacity=".4" stroke-width="1"/>`;
+      const width=square===100?31:25;
+      numbers+=`<g class="square-number"><rect x="${x+4}" y="${y+4}" width="${width}" height="20" rx="5" fill="#fffdf4" fill-opacity=".83"/><text x="${x+4+width/2}" y="${y+19}" text-anchor="middle" font-size="15" font-weight="800" fill="${square===100?'#9a6d25':'#506754'}">${square}</text></g>`;
     }
-    for (const [from,to] of Object.entries(R.LADDER)) {
-      const [x1,y1]=snakePoint(Number(from)),[x2,y2]=snakePoint(to),dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),px=-dy/len*9,py=dx/len*9;
-      out += `<g stroke-linecap="round"><path d="M${x1-px},${y1-py}L${x2-px},${y2-py}M${x1+px},${y1+py}L${x2+px},${y2+py}" stroke="#775335" stroke-width="8" opacity=".2" transform="translate(3 3)"/>`;
-      for(let rung=0;rung<=Math.floor(len/23);rung++) {
-        const t=rung/Math.max(1,Math.floor(len/23)), x=x1+dx*t,y=y1+dy*t;
-        out+=`<path d="M${x-px},${y-py}L${x+px},${y+py}" stroke="#a27a47" stroke-width="5"/><path d="M${x-px},${y-py-1}L${x+px},${y+py-1}" stroke="#efd397" stroke-width="2"/>`;
-      }
-      out+=`<path d="M${x1-px},${y1-py}L${x2-px},${y2-py}M${x1+px},${y1+py}L${x2+px},${y2+py}" stroke="#9a6d3e" stroke-width="6"/><path d="M${x1-px-1},${y1-py}L${x2-px-1},${y2-py}M${x1+px-1},${y1+py}L${x2+px-1},${y2+py}" stroke="#ecc789" stroke-width="2"/></g>`;
-    }
-    let index=0;
-    for (const [from,to] of Object.entries(R.SNAKE)) {
-      const [x,y]=snakePoint(Number(from)),[tx,ty]=snakePoint(to),dx=tx-x,dy=ty-y,len=Math.hypot(dx,dy),bend=Math.min(60,len*.22),px=-dy/len*bend,py=dx/len*bend;
-      const a=[x+dx*.33+px,y+dy*.33+py], b=[x+dx*.66-px,y+dy*.66-py];
-      const path=`M${x} ${y}C${a[0]} ${a[1]} ${b[0]} ${b[1]} ${tx} ${ty}`;
-      const colors=[['#72a453','#447744'],['#dc8571','#ae5a53'],['#8696c0','#596d9d'],['#a997b8','#7b6995']][index++%4];
-      out+=`<path d="${path}" fill="none" stroke="#514232" stroke-opacity=".13" stroke-width="20" stroke-linecap="round" transform="translate(2 3)"/><path d="${path}" fill="none" stroke="${colors[1]}" stroke-width="18" stroke-linecap="round"/><path d="${path}" fill="none" stroke="${colors[0]}" stroke-width="13" stroke-linecap="round"/><path d="${path}" fill="none" stroke="#fff2b7" stroke-opacity=".5" stroke-width="3" stroke-dasharray="3 13" stroke-linecap="round"/>`;
-      const angle=Math.atan2(y-a[1],x-a[0])*180/Math.PI;
-      out+=`<g transform="translate(${x} ${y}) rotate(${angle})"><ellipse rx="16" ry="12" fill="${colors[0]}" stroke="${colors[1]}" stroke-width="2"/><circle cx="6" cy="-6" r="4" fill="#fff7d8"/><circle cx="6" cy="6" r="4" fill="#fff7d8"/><circle cx="8" cy="-6" r="2" fill="#344233"/><circle cx="8" cy="6" r="2" fill="#344233"/><path d="M17 0h9m0 0 4-4m-4 4 4 4" fill="none" stroke="#ba6152" stroke-width="2"/></g>`;
-    }
-    out+='<text x="40" y="654" font-size="9" fill="#796044" font-weight="750">START</text><path d="M55 37l6-9 6 9 7-6-3 18H43l-3-18z" fill="#d8b752" stroke="#a98b36" stroke-width="1"/>';
+    for(const [from,to]of Object.entries(R.LADDER))out+=ladderArt(Number(from),to,id);
+    const snakes=game?.snakes||Object.entries(R.SNAKE).map(([head,tail],index)=>({id:'snake-'+index,head:Number(head),tail}));snakes.forEach((snake,index)=>{out+=snakeArt(snake.head,snake.tail,index,id,null,snake.id);});
+    out+=numbers;
+    const [cx,cy]=snakePoint(100);
+    out+=`<path d="M${cx-12} ${cy+12}l-3-17 9 6 6-10 6 10 9-6-3 17z" fill="url(#${id}-brass)" stroke="#ad8039" stroke-width="1.2" stroke-linejoin="round"/><path d="M${cx-10} ${cy+15}h20" stroke="#e8b85d" stroke-width="3" stroke-linecap="round"/><rect x="30" y="639" width="66" height="17" rx="8.5" fill="#e1eed9" stroke="#a7bf96" stroke-width=".7"/><text x="63" y="651" text-anchor="middle" font-size="9" fill="#628552" font-weight="800" letter-spacing="1">START</text>`;
     out+=tokenMarkup(game,me,id,local,animate);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 660" class="game-board snakes-board" role="group" aria-label="Snakes and Ladders board">${out}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 660" data-art-id="${id}" class="game-board snakes-board" role="group" aria-label="Snakes and Ladders board">${out}</svg>`;
   }
   function preview(type,id) {
     const players=R.COLORS.map((color,index)=>({id:String(index),name:'Player',color}));
@@ -84,5 +101,5 @@
     else game.players.forEach((player,index)=>player.tokens=[([4,23,46,69])[index]]);
     return type==='ludo'?ludo(game,'',id):snakes(game,'',id);
   }
-  window.BoardArt={ludo,snakes,preview,pawn,escape};
+  window.BoardArt={ludo,snakes,preview,pawn,escape,snakeArt};
 })();

@@ -56,3 +56,4 @@
 
 .brand .brand-ludo{color:#417bca;font-weight:800}.brand .brand-snake{width:44px;height:44px;flex:none;filter:drop-shadow(0 2px 1px #45866b18)}.site-footer{flex-wrap:wrap;align-items:center;gap:14px 12px}.footer-credit{flex-basis:100%;text-align:center;font-size:11px;color:#9b89ad;letter-spacing:.15px;padding:3px 0 5px}.footer-credit b{font-weight:750;color:#8062a3}.footer-heart{display:inline-block;color:#dd6e87;font-size:14px;vertical-align:-1px;margin:0 2px}
 @media(max-width:540px){.brand .brand-snake{width:34px;height:34px}.footer-credit{font-size:10px}.site-footer{gap:12px}}
+.board-snake.slithering{filter:drop-shadow(0 0 4px #ffda8d);pointer-events:none}

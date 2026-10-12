@@ -26,7 +26,7 @@ test('capture returns wait for the moving token to reach the captured square',()
 });
 test('Snakes and Ladders first walks to the landing square, then climbs or slides',()=>{
  const before=R.create('snakes',players),after=clone(before);R.roll(after,'a',3);const ladder=Motion.plan(before,after).find(item=>item.primary);assert.equal(ladder.segments.length,4);assert.equal(ladder.segments.at(-1).highlight,'ladder');assert.deepEqual(ladder.end,Motion.point(after,'a',0));
- const snakeStart=R.create('snakes',players);snakeStart.players[0].tokens[0]=16;const snakeEnd=clone(snakeStart);R.roll(snakeEnd,'a',1);const snake=Motion.plan(snakeStart,snakeEnd).find(item=>item.primary);assert.equal(snake.segments[1].highlight,'snake');assert.equal(snake.segments.length,21);assert.deepEqual(snake.segments.at(-1).to,Motion.point(snakeEnd,'a',0));
+ const snakeStart=R.create('snakes',players);snakeStart.players[0].tokens[0]=16;const snakeEnd=clone(snakeStart);R.roll(snakeEnd,'a',1);const snake=Motion.plan(snakeStart,snakeEnd).find(item=>item.primary);assert.equal(snake.segments[1].highlight,'snake');assert.equal(snake.segments.length,41);assert.deepEqual(snake.segments.at(-1).to,Motion.point(snakeEnd,'a',0));
 });
 test('music and effects default on, remember separate volumes and clamp bad levels',()=>{
  const audio=new Engine();assert.deepEqual(audio.settings,DEFAULTS);assert.equal(audio.settings.musicOn,true);audio.configure({musicOn:false,music:.2,effects:.8});assert.equal(audio.settings.effectsOn,true);assert.equal(audio.settings.effects,.8);audio.configure({effectsOn:false,musicOn:true,music:10,effects:-3});assert.equal(audio.settings.music,1);assert.equal(audio.settings.effects,0);assert.equal(audio.settings.musicOn,true);audio.stop();

@@ -78,12 +78,12 @@ test('disconnected guests retain their seat during a game and cannot act until r
  value.disconnect('b',true);assert.equal(value.players.length,2);assert.throws(()=>value.command('b',{type:'roll',version:value.version}));
  value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});assert.equal(value.players[1].connected,true);
 });
-test('lobby removal makes a seat available and rematch requires the host and a completed game',()=>{
+test('lobby removal makes a seat available but a completed room cannot reopen',()=>{
  const value=room();value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});
  assert.throws(()=>value.command('b',{type:'remove',player:'a',version:value.version}));
  value.command('a',{type:'remove',player:'b',version:value.version});assert.equal(value.players.length,1);
  startRoom(value);assert.throws(()=>value.command('a',{type:'rematch',version:value.version}));
- value.game.winner='a';value.phase='won';value.command('a',{type:'rematch',version:value.version});assert.equal(value.phase,'lobby');assert.equal(value.game,null);assert.equal(value.players[1].ready,false);
+ value.game.winner='a';value.phase='won';assert.throws(()=>value.command('a',{type:'rematch',version:value.version}),/expired/);assert.equal(value.phase,'won');assert.equal(value.snapshot().roomClosed,true);
 });
 test('three and four player games rotate across every seat',()=>{
  for(const total of [3,4]){const names=R.seats(total).map((color,i)=>({id:String(i),name:'Player '+i,color}));const g=R.create('ludo',names);for(let i=0;i<total;i++){assert.equal(R.current(g).id,String(i));R.roll(g,String(i),1);}assert.equal(g.turn,0);}

@@ -29,7 +29,7 @@ test('release, capture and finish have different short musical signatures',()=>{
 test('commentary announces releases, captures and finishes once per new action',()=>{
  const start=R.create('ludo',players),six=clone(start);R.roll(six,'0',6);assert.deepEqual(Commentary.events(start,six),[]);
  const released=clone(six);R.move(released,'0',0);assert.equal(Commentary.events(six,released)[0].effect,'release');assert.deepEqual(Commentary.events(released,clone(released)),[]);
- const before=R.create('ludo',players);before.players[0].tokens[0]=5;before.players[2].tokens=[32,32,-1,-1];const after=clone(before);R.roll(after,'0',1);R.autoMove(after,'0');const capture=Commentary.events(before,after);assert.equal(capture.length,1);assert.equal(capture[0].effect,'capture');assert.match(capture[0].text,/Sam/);
+ const before=R.create('ludo',players);before.players[0].tokens[0]=5;before.players[2].tokens=[32,32,-1,-1];const after=clone(before);R.roll(after,'0',1);R.autoMove(after,'0');const capture=Commentary.events(before,after);assert.equal(capture.length,1);assert.equal(capture[0].effect,'capture');assert.equal(capture[0].text.includes('Sam'),false);
  const finishStart=R.create('ludo',players);finishStart.players[0].tokens[0]=55;const finish=clone(finishStart);R.roll(finish,'0',1);R.autoMove(finish,'0');assert.equal(Commentary.events(finishStart,finish)[0].effect,'finish');
 });
 test('snake and ladder commentary follows the actual landing result',()=>{
@@ -39,5 +39,5 @@ test('snake and ladder commentary follows the actual landing result',()=>{
 test('spoken reactions require a local English voice and respect mute and gesture unlock',()=>{
  const spoken=[],synth={getVoices:()=>[{lang:'en-US',localService:false},{lang:'hi-IN',localService:true}],speak:value=>spoken.push(value),cancel(){},addEventListener(){},removeEventListener(){}};
  const speaker=new Commentary.Speaker({synth,Utterance:class{constructor(text){this.text=text;}}});speaker.unlock();assert.equal(speaker.say('Hurrah!'),false);
- synth.getVoices=()=>[{lang:'en-IN',localService:true}];speaker.refresh();assert.equal(speaker.say('Hurrah!',.4),true);assert.equal(spoken[0].volume,.4);assert.equal(spoken[0].voice.localService,true);speaker.configure(false);assert.equal(speaker.say('Oh no!'),false);assert.equal(spoken.length,1);speaker.stop();
+ synth.getVoices=()=>[{lang:'en-IN',localService:true}];speaker.refresh();assert.equal(speaker.say('Hurrah!',.4),true);assert.equal(spoken[0].volume,.4);assert.equal(spoken[0].voice.localService,true);assert.ok(spoken[0].rate>=1.2);assert.ok(spoken[0].pitch>=1.2);speaker.configure(false);assert.equal(speaker.say('Oh no!'),false);assert.equal(spoken.length,1);speaker.stop();
 });

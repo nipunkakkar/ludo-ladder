@@ -31,5 +31,9 @@
     return {x,y,width,height,count:group.length,center:at,halo:group.length===1?19:Math.max(width*.65,4)};
   }
   function point(game,id,token){const value=layout(game,id,token);return value?[value.x,value.y]:null;}
-  return {center,layout,point};
+  function snakeCurve(from,to,steps=40){
+    const dx=to[0]-from[0],dy=to[1]-from[1],length=Math.hypot(dx,dy)||1,bend=Math.min(36,length*.11),nx=-dy/length,ny=dx/length;
+    return Array.from({length:steps+1},(_,index)=>{const t=index/steps,wave=Math.sin(t*Math.PI*4)*Math.sin(t*Math.PI)*bend;return[from[0]+dx*t+nx*wave,from[1]+dy*t+ny*wave];});
+  }
+  return {center,layout,point,snakeCurve};
 });

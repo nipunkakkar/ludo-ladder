@@ -6,14 +6,16 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Rules) {
   'use strict';
   class Room {
-    constructor({ code, type, capacity, hostId, name, secret, dice }) {
+    constructor({ code, type, capacity, hostId, name, secret, dice, randomIndex }) {
       if (!['ludo', 'snakes'].includes(type) || ![2,3,4].includes(capacity)) throw new Error('Choose a game and 2–4 players.');
       this.code = code; this.type = type; this.capacity = capacity; this.hostId = hostId;
       this.players = [{ id: hostId, name: Rules.cleanName(name), secret, color: Rules.seats(capacity)[0], ready: true, connected: true }];
       this.phase = 'lobby'; this.game = null; this.version = 1;
       this.dice = dice;
+      this.randomIndex=randomIndex;
     }
     join({ id, name, secret }) {
+      if (this.phase === 'won') throw new Error('This game is finished. The room code has expired. Create a new room.');
       if (typeof id !== 'string' || id.length > 80 || typeof secret !== 'string' || secret.length < 20 || secret.length > 100) throw new Error('Invalid player session. Please reload and try again.');
       const existing = this.players.find(player => player.id === id);
       if (existing) {
@@ -36,6 +38,7 @@
     }
     canStart() { return this.phase === 'lobby' && this.players.length === this.capacity && this.players.every(player => player.ready && player.connected); }
     command(id, command) {
+      if (this.phase === 'won') throw new Error('This game is finished. The room code has expired. Create a new room.');
       const player = this.players.find(item => item.id === id);
       if (!player || !player.connected) throw new Error('Join the room first.');
       if (!command || typeof command !== 'object' || typeof command.type !== 'string') throw new Error('Invalid action.');
@@ -51,13 +54,9 @@
         if (this.phase !== 'playing') throw new Error('The game is not running.');
         const active = Rules.current(this.game);
         if (!this.players.find(item => item.id === active.id)?.connected) throw new Error('Waiting for the current player to reconnect.');
-        if (command.type === 'roll') { Rules.roll(this.game, id, this.dice()); Rules.autoMove(this.game, id); }
+        if (command.type === 'roll') { Rules.roll(this.game, id, this.dice(),this.randomIndex); Rules.autoMove(this.game, id); }
         else Rules.move(this.game, id, command.token);
         if (this.game.winner) this.phase = 'won';
-      } else if (command.type === 'rematch') {
-        if (id !== this.hostId || this.phase !== 'won') throw new Error('Only the host can start a rematch after the game ends.');
-        this.game = null; this.phase = 'lobby';
-        this.players.forEach(item => { item.ready = item.id === this.hostId; });
       } else if (command.type === 'remove') {
         if (id !== this.hostId || this.phase !== 'lobby' || command.player === this.hostId) throw new Error('Only the host can remove a guest before play starts.');
         this.players = this.players.filter(item => item.id !== command.player);
@@ -65,7 +64,7 @@
       this.version += 1;
     }
     snapshot() {
-      return { code: this.code, type: this.type, capacity: this.capacity, hostId: this.hostId, phase: this.phase, players: this.players.map(({ secret, ...player }) => ({ ...player })), version: this.version, game: this.game ? JSON.parse(JSON.stringify(this.game)) : null, canStart: this.canStart() };
+      return { code: this.code, type: this.type, capacity: this.capacity, hostId: this.hostId, phase: this.phase, roomClosed: this.phase === 'won', players: this.players.map(({ secret, ...player }) => ({ ...player })), version: this.version, game: this.game ? JSON.parse(JSON.stringify(this.game)) : null, canStart: this.canStart() };
     }
   }
   return { Room };
