@@ -10,7 +10,11 @@
   const reactionTimers=new Set();
   let speaker=null;
   const audio = new window.GameAudio.Engine({ onChange: syncAudio });
-  try { audio.configure(JSON.parse(localStorage.getItem('ll-audio-v1') || '{}')); } catch (_) { audio.configure({}); }
+  try {
+    const saved=localStorage.getItem('ll-audio-v2'),preferences=JSON.parse(saved || localStorage.getItem('ll-audio-v1') || '{}');
+    if(!saved)preferences.track=window.GameAudio.DEFAULTS.track;
+    audio.configure(preferences);
+  } catch (_) { audio.configure({}); }
   speaker=new window.GameCommentary.Speaker({onChange:syncVoice});
   try{speaker.configure(localStorage.getItem('ll-commentary-voice')!=='false');}catch(_){speaker.configure(true);}
   let tableOpen = true;
@@ -41,7 +45,7 @@
     $('#audio-note').textContent=settings.started ? settings.musicOn?`${track.name} is playing. Pick another mood anytime.`:'Music is off. Game effects have their own control.' : 'Music starts with your first click or tap.';
     $('#audio-btn').classList.toggle('muted',!settings.musicOn&&!settings.effectsOn);
     if(!settings.effectsOn || !settings.effects)speaker?.cancel();
-    try { const {musicOn,effectsOn,music,effects,track}=settings;localStorage.setItem('ll-audio-v1',JSON.stringify({musicOn,effectsOn,music,effects,track})); } catch (_) { /* Preferences are optional. */ }
+    try { const {musicOn,effectsOn,music,effects,track}=settings;localStorage.setItem('ll-audio-v2',JSON.stringify({musicOn,effectsOn,music,effects,track})); } catch (_) { /* Preferences are optional. */ }
   }
   function syncVoice(status){
     $('#voice-btn').setAttribute('aria-pressed',String(status.enabled));$('#voice-btn').textContent=status.enabled?'♫ Voice on':'♫ Voice off';

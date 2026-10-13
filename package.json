@@ -1,6 +1,6 @@
 {
   "name": "ludo-ladder",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "Private multiplayer Ludo and Snakes & Ladders, on the web.",
   "scripts": {
