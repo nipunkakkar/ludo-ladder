@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const R=require('../rules.js'),C=require('../commentary.js'),Motion=require('../motion.js'),{STINGS}=require('../audio.js');
 const players=[{id:'a',name:'Nipun',color:'red'},{id:'b',name:'Alex',color:'yellow'}],clone=value=>JSON.parse(JSON.stringify(value));
-function rolled(type,tokens,die){const before=R.create(type,players);before.players[0].tokens=tokens;const after=clone(before);R.roll(after,'a',die);if(type==='ludo')R.autoMove(after,'a');return{before,after};}
+function rolled(type,tokens,die){const before=R.create(type,players);before.players[0].tokens=tokens;const after=clone(before);R.roll(after,'a',die,()=>0);if(type==='ludo')R.autoMove(after,'a');return{before,after};}
 test('ordinary rolls, blocked rolls and routine moves have no commentary in either game',()=>{
  const miss=rolled('ludo',[-1,-1,-1,-1],2);assert.deepEqual(C.events(miss.before,miss.after),[]);
  const walk=rolled('ludo',[2,-1,-1,-1],3);assert.deepEqual(C.events(walk.before,walk.after),[]);
@@ -20,7 +20,7 @@ test('home stretch and final row react on crossing the milestone, not on every l
  const topStep=rolled('snakes',[90],1);assert.deepEqual(C.events(topStep.before,topStep.after),[]);
 });
 test('late lead changes and a Ludo photo finish count as intense moments',()=>{
- const before=R.create('snakes',players);before.players[0].tokens=[88];before.players[1].tokens=[89];const after=clone(before);R.roll(after,'a',2);assert.equal(C.events(before,after)[0].kind,'lead-change');
+ const before=R.create('snakes',players);before.players[0].tokens=[88];before.players[1].tokens=[89];const after=clone(before);R.roll(after,'a',2,()=>0);assert.equal(C.events(before,after)[0].kind,'lead-change');
  const ludo=R.create('ludo',players);ludo.players[0].tokens=[56,56,56,52];ludo.players[1].tokens=[56,56,56,53];const end=clone(ludo);R.roll(end,'a',1);R.autoMove(end,'a');assert.equal(C.events(ludo,end)[0].kind,'showdown');
 });
 test('climb and slide commentary and music start at the jump, with one cue per action',()=>{

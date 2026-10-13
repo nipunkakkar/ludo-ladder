@@ -11,7 +11,7 @@
     const actor=game.players.find(player=>player.id===action.player);
     const line=(kind,mood,text,effect=null,timing='arrival')=>[{kind,mood,text,effect,timing}];
     const joke=lines=>pick(lines,action.id);
-    if(action.snakeShift && !game.winner)return line('snake-shift','surprise',joke(action.snakeShift.players.length?['Ssssurprise! The snake moved under somebody. HOLD ON!','Moving mouth! That was absolutely NOT a safe parking spot!','Oh NO! A snake just changed lanes. Slide incoming!']:['Plot twist! That snake has changed its address!','Sssneaky! New mouth, same terrible manners!','The snake has entered relocation mode. Watch your feet!']),'head-shift','shift');
+    if(action.snakeShift?.players.length && !game.winner)return line('snake-shift','surprise',joke(['Ssssurprise! The snake moved under somebody. HOLD ON!','Moving mouth! That was absolutely NOT a safe parking spot!','Oh NO! A snake just changed lanes. Slide incoming!']),'head-shift','shift');
     if(action.type==='ludo-move'){
       if(game.winner)return line('win','celebrate',joke(['Game, set, Ludo! Bragging rights SECURED!','CHAMPION! Take a bow. Everyone else, demand a rematch!','Crown secured! Please celebrate responsibly. Or loudly.']),'win');
       if(action.to===56){

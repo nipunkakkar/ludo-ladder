@@ -101,6 +101,6 @@ test('moving snakes and caught pawns are chosen by the host and replicated to al
  try{
   await host.connection.create('snakes',2,'Host');await guest.connection.join(host.state.code,'Guest');await guest.connection.command({type:'ready',ready:true});await host.connection.command({type:'start'});await flush();
   host.connection.host.game.rollCount=3;host.connection.host.game.players[0].tokens=[1];host.connection.host.game.players[1].tokens=[11];host.connection.host.dice=()=>1;host.connection.host.randomIndex=()=>0;host.connection.broadcast();await flush();
-  await host.connection.command({type:'roll',snakeShift:{to:99},die:6});await flush();assert.equal(host.state.game.action.snakeShift.to,11);assert.equal(guest.state.game.players[1].tokens[0],7);assert.deepEqual(normalize(host.state),normalize(guest.state));assert.equal(guest.state.phase,'playing');
+  await host.connection.command({type:'roll',snakeShift:{to:99},die:6});await flush();assert.equal(host.state.game.action.snakeShift.to,11);assert.equal(host.state.game.action.snakeShift.fromTail,7);assert.equal(host.state.game.action.snakeShift.tail,1);assert.equal(guest.state.game.players[1].tokens[0],1);assert.deepEqual(normalize(host.state),normalize(guest.state));assert.equal(guest.state.phase,'playing');
  }finally{host.connection.close();guest.connection.close();}
 });

@@ -67,7 +67,7 @@
       else motion.segments.push({to:end,duration:200,hop:0});
       motion.end=end;motion.endWidth=G.layout(after,player.id,0).width;motion.duration=motion.segments.reduce((total,segment)=>total+segment.duration,0);
     }
-    motions.push({kind:'snake-shift',snakeId:shift.id,index:shift.index,from:shift.from,to:shift.to,tail:shift.tail,start:center('snakes','red',shift.from),end:center('snakes','red',shift.to),segments:[{to:center('snakes','red',shift.to),duration:650,hop:0}],duration:650,delay:primaryEnd});
+    motions.push({kind:'snake-shift',snakeId:shift.id,index:shift.index,from:shift.from,to:shift.to,tail:shift.tail,startTail:center('snakes','red',shift.fromTail),endTail:center('snakes','red',shift.tail),start:center('snakes','red',shift.from),end:center('snakes','red',shift.to),segments:[{to:center('snakes','red',shift.to),duration:650,hop:0,sound:shift.players.length?null:'head-shift'}],duration:650,delay:primaryEnd});
     return motions;
   }
   function animate(svg,motions,options={}) {
@@ -81,7 +81,8 @@
       if(motion.kind!=='snake-shift'){place(motion.node,at,width);return;}
       const art=options.art||root.BoardArt;if(!motion.node || !art)return;
       if(motion.lastHead && motion.lastHead[0]===at[0] && motion.lastHead[1]===at[1])return;motion.lastHead=at;
-      const markup=art.snakeArt(motion.to,motion.tail,motion.index,svg.getAttribute('data-art-id'),at,motion.snakeId);motion.node.innerHTML=markup.slice(markup.indexOf('>')+1,markup.lastIndexOf('</g>'));
+      const length=Math.hypot(motion.end[0]-motion.start[0],motion.end[1]-motion.start[1])||1,t=Math.min(1,Math.hypot(at[0]-motion.start[0],at[1]-motion.start[1])/length),tail=[motion.startTail[0]+(motion.endTail[0]-motion.startTail[0])*t,motion.startTail[1]+(motion.endTail[1]-motion.startTail[1])*t];
+      const markup=art.snakeArt(motion.to,motion.tail,motion.index,svg.getAttribute('data-art-id'),at,motion.snakeId,tail);motion.node.innerHTML=markup.slice(markup.indexOf('>')+1,markup.lastIndexOf('</g>'));
     }
     const finish=()=>{targets.forEach(motion=>{position(motion,motion.end,motion.endWidth);motion.node?.classList.remove('moving','slithering');});resolve();};
     const finished=new Promise(done=>{resolve=done;});
