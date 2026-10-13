@@ -9,7 +9,7 @@
     constructor({ code, type, capacity, hostId, name, secret, dice, randomIndex }) {
       if (!['ludo', 'snakes'].includes(type) || ![2,3,4].includes(capacity)) throw new Error('Choose a game and 2–4 players.');
       this.code = code; this.type = type; this.capacity = capacity; this.hostId = hostId;
-      this.players = [{ id: hostId, name: Rules.cleanName(name), secret, color: Rules.seats(capacity)[0], ready: true, connected: true }];
+      this.players = [{ id: hostId, name: Rules.cleanName(name), secret, color: Rules.seats(capacity)[0], connected: true }];
       this.phase = 'lobby'; this.game = null; this.version = 1;
       this.dice = dice;
       this.randomIndex=randomIndex;
@@ -20,37 +20,34 @@
       const existing = this.players.find(player => player.id === id);
       if (existing) {
         if (existing.secret !== secret) throw new Error('This seat belongs to another player.');
-        existing.connected = true; this.version += 1; return existing;
+        existing.connected = true; this.startWhenFull(); this.version += 1; return existing;
       }
-      if (this.phase !== 'lobby') throw new Error('This game has already started. Create another room.');
       if (this.players.length >= this.capacity) throw new Error('This room is full.');
+      if (this.phase !== 'lobby') throw new Error('This game has already started. Create another room.');
       const used = new Set(this.players.map(player => player.color));
       const color = Rules.seats(this.capacity).find(value => !used.has(value));
-      const player = { id, secret, name: Rules.cleanName(name), color, ready: false, connected: true };
-      this.players.push(player); this.version += 1; return player;
+      const player = { id, secret, name: Rules.cleanName(name), color, connected: true };
+      this.players.push(player); this.startWhenFull(); this.version += 1; return player;
     }
     disconnect(id, leave = false) {
       const index = this.players.findIndex(player => player.id === id);
       if (index < 0) return;
       if (this.phase === 'lobby' && leave && id !== this.hostId) this.players.splice(index, 1);
-      else { this.players[index].connected = false; this.players[index].ready = false; }
+      else this.players[index].connected = false;
       this.version += 1;
     }
-    canStart() { return this.phase === 'lobby' && this.players.length === this.capacity && this.players.every(player => player.ready && player.connected); }
+    canStart() { return this.phase === 'lobby' && this.players.length === this.capacity && this.players.every(player => player.connected); }
+    startWhenFull() {
+      if (!this.canStart()) return;
+      this.game = Rules.create(this.type, this.players); this.phase = 'playing';
+    }
     command(id, command) {
       if (this.phase === 'won') throw new Error('This game is finished. The room code has expired. Create a new room.');
       const player = this.players.find(item => item.id === id);
       if (!player || !player.connected) throw new Error('Join the room first.');
       if (!command || typeof command !== 'object' || typeof command.type !== 'string') throw new Error('Invalid action.');
       if (command.version !== this.version) throw new Error('The room changed. Please try again.');
-      if (command.type === 'ready') {
-        if (this.phase !== 'lobby') throw new Error('The game has already started.');
-        player.ready = !!command.ready;
-      } else if (command.type === 'start') {
-        if (id !== this.hostId) throw new Error('Only the host can start the game.');
-        if (!this.canStart()) throw new Error('Wait until everyone has joined and is ready.');
-        this.game = Rules.create(this.type, this.players); this.phase = 'playing';
-      } else if (command.type === 'roll' || command.type === 'move') {
+      if (command.type === 'roll' || command.type === 'move') {
         if (this.phase !== 'playing') throw new Error('The game is not running.');
         const active = Rules.current(this.game);
         if (!this.players.find(item => item.id === active.id)?.connected) throw new Error('Waiting for the current player to reconnect.');

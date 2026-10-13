@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const R=require('../rules.js'),Motion=require('../motion.js'),{Room}=require('../room.js'),{Engine,DEFAULTS}=require('../audio.js');
 const players=[{id:'a',name:'Nipun',color:'red'},{id:'b',name:'Alex',color:'yellow'}];
 const clone=value=>JSON.parse(JSON.stringify(value));
-function room(die=3){const value=new Room({code:'ABC234',type:'ludo',capacity:2,name:'Nipun',hostId:'a',secret:'a'.repeat(32),dice:()=>die});value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});value.command('b',{type:'ready',ready:true,version:value.version});value.command('a',{type:'start',version:value.version});return value;}
+function room(die=3){const value=new Room({code:'ABC234',type:'ludo',capacity:2,name:'Nipun',hostId:'a',secret:'a'.repeat(32),dice:()=>die});value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});return value;}
 test('one legal token moves automatically in the shared room, once per roll',()=>{
  const value=room(3);value.game.players[0].tokens=[0,-1,-1,-1];const version=value.version;
  value.command('a',{type:'roll',version});assert.equal(value.game.players[0].tokens[0],3);assert.equal(value.game.pending,null);assert.equal(value.game.turn,1);assert.equal(value.game.action.automatic,true);assert.equal(value.version,version+1);
@@ -29,5 +29,5 @@ test('Snakes and Ladders first walks to the landing square, then climbs or slide
  const snakeStart=R.create('snakes',players);snakeStart.players[0].tokens[0]=16;const snakeEnd=clone(snakeStart);R.roll(snakeEnd,'a',1);const snake=Motion.plan(snakeStart,snakeEnd).find(item=>item.primary);assert.equal(snake.segments[1].highlight,'snake');assert.equal(snake.segments.length,41);assert.deepEqual(snake.segments.at(-1).to,Motion.point(snakeEnd,'a',0));
 });
 test('music and effects default on, remember separate volumes and clamp bad levels',()=>{
- const audio=new Engine();assert.deepEqual(audio.settings,DEFAULTS);assert.equal(audio.settings.musicOn,true);audio.configure({musicOn:false,music:.2,effects:.8});assert.equal(audio.settings.effectsOn,true);assert.equal(audio.settings.effects,.8);audio.configure({effectsOn:false,musicOn:true,music:10,effects:-3});assert.equal(audio.settings.music,1);assert.equal(audio.settings.effects,0);assert.equal(audio.settings.musicOn,true);audio.stop();
+ const audio=new Engine();assert.deepEqual(audio.settings,DEFAULTS);assert.equal(audio.settings.track,'neon');assert.equal(audio.settings.musicOn,true);audio.configure({musicOn:false,music:.2,effects:.8});assert.equal(audio.settings.effectsOn,true);assert.equal(audio.settings.effects,.8);audio.configure({effectsOn:false,musicOn:true,music:10,effects:-3});assert.equal(audio.settings.music,1);assert.equal(audio.settings.effects,0);assert.equal(audio.settings.musicOn,true);audio.stop();
 });

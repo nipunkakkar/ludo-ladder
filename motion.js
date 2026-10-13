@@ -20,7 +20,7 @@
   }
   function plan(before,after) {
     if(!before || !after || before.type!==after.type || before.players.length!==after.players.length)return [];
-    if(after.type==='snakes' && after.action?.snakeShift)return shiftedPlan(before,after);
+    if(after.type==='snakes' && after.action?.snakeShifts?.length)return shiftedPlan(before,after);
     const action=after.action;if(!action || !['ludo-move','snakes-move'].includes(action.type))return [];
     const motions=[];let primaryEnd=0;
     for(const player of after.players){
@@ -53,21 +53,21 @@
     return motions;
   }
   function shiftedPlan(before,after){
-    const shift=after.action.snakeShift,intermediate=JSON.parse(JSON.stringify(after));delete intermediate.action.snakeShift;
+    const shifts=after.action.snakeShifts,hits=shifts.flatMap(shift=>shift.players),intermediate=JSON.parse(JSON.stringify(after));delete intermediate.action.snakeShifts;
     intermediate.snakes=before.snakes;
-    for(const hit of shift.players)intermediate.players.find(player=>player.id===hit.player).tokens[0]=hit.from;
-    const motions=plan(before,intermediate),primaryEnd=motions.find(motion=>motion.primary)?.duration||0,shiftEnd=primaryEnd+650;
+    for(const hit of hits)intermediate.players.find(player=>player.id===hit.player).tokens[0]=hit.from;
+    const motions=plan(before,intermediate),primaryEnd=motions.find(motion=>motion.primary)?.duration||0,shuffleDuration=1050,shiftEnd=primaryEnd+shuffleDuration;
     for(const player of after.players){
-      const hit=shift.players.find(item=>item.player===player.id),start=point(intermediate,player.id,0),end=point(after,player.id,0);
+      const hit=hits.find(item=>item.player===player.id),start=point(intermediate,player.id,0),end=point(after,player.id,0);
       if(!hit && Math.hypot(end[0]-start[0],end[1]-start[1])<.1)continue;
       let motion=motions.find(item=>item.player===player.id && item.token===0);
       if(!motion){motion={player:player.id,token:0,start:point(before,player.id,0),end,startWidth:G.layout(before,player.id,0).width,endWidth:G.layout(after,player.id,0).width,segments:[],duration:0,delay:0,primary:after.action.player===player.id};motions.push(motion);}
       const wait=shiftEnd-motion.duration;if(wait>0)motion.segments.push({to:start,duration:wait,hop:0});
-      if(hit){const points=curve(start,end,true);points.slice(1).forEach((at,index)=>motion.segments.push({to:at,duration:840/(points.length-1),hop:0,linear:true,sound:index===0 && shift.players[0].player===player.id?'snake':null}));}
+      if(hit){const points=curve(start,end,true);points.slice(1).forEach((at,index)=>motion.segments.push({to:at,duration:840/(points.length-1),hop:0,linear:true,sound:index===0 && hits[0].player===player.id?'snake':null}));}
       else motion.segments.push({to:end,duration:200,hop:0});
       motion.end=end;motion.endWidth=G.layout(after,player.id,0).width;motion.duration=motion.segments.reduce((total,segment)=>total+segment.duration,0);
     }
-    motions.push({kind:'snake-shift',snakeId:shift.id,index:shift.index,from:shift.from,to:shift.to,tail:shift.tail,startTail:center('snakes','red',shift.fromTail),endTail:center('snakes','red',shift.tail),start:center('snakes','red',shift.from),end:center('snakes','red',shift.to),segments:[{to:center('snakes','red',shift.to),duration:650,hop:0,sound:shift.players.length?null:'head-shift'}],duration:650,delay:primaryEnd});
+    for(const shift of shifts)motions.push({kind:'snake-shift',snakeId:shift.id,index:shift.index,from:shift.from,to:shift.to,tail:shift.tail,startTail:center('snakes','red',shift.fromTail),endTail:center('snakes','red',shift.tail),start:center('snakes','red',shift.from),end:center('snakes','red',shift.to),segments:[{to:center('snakes','red',shift.to),duration:shuffleDuration,hop:0}],duration:shuffleDuration,delay:primaryEnd});
     return motions;
   }
   function animate(svg,motions,options={}) {
@@ -82,7 +82,8 @@
       const art=options.art||root.BoardArt;if(!motion.node || !art)return;
       if(motion.lastHead && motion.lastHead[0]===at[0] && motion.lastHead[1]===at[1])return;motion.lastHead=at;
       const length=Math.hypot(motion.end[0]-motion.start[0],motion.end[1]-motion.start[1])||1,t=Math.min(1,Math.hypot(at[0]-motion.start[0],at[1]-motion.start[1])/length),tail=[motion.startTail[0]+(motion.endTail[0]-motion.startTail[0])*t,motion.startTail[1]+(motion.endTail[1]-motion.startTail[1])*t];
-      const markup=art.snakeArt(motion.to,motion.tail,motion.index,svg.getAttribute('data-art-id'),at,motion.snakeId,tail);motion.node.innerHTML=markup.slice(markup.indexOf('>')+1,markup.lastIndexOf('</g>'));
+      const sway=Math.sin(t*Math.PI)*Math.sin(t*Math.PI*4)*7;
+      const markup=art.snakeArt(motion.to,motion.tail,motion.index,svg.getAttribute('data-art-id'),at,motion.snakeId,tail,sway);motion.node.innerHTML=markup.slice(markup.indexOf('>')+1,markup.lastIndexOf('</g>'));
     }
     const finish=()=>{targets.forEach(motion=>{position(motion,motion.end,motion.endWidth);motion.node?.classList.remove('moving','slithering');});resolve();};
     const finished=new Promise(done=>{resolve=done;});

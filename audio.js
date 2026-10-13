@@ -6,7 +6,7 @@
   'use strict';
   // Original composition and synthesis for Ludo Ladder. Audio material: CC0.
   // No recording, sample, external music service or existing tune is used.
-  const DEFAULTS = { musicOn: true, effectsOn: true, music: .35, effects: .6, track: 'mellow' };
+  const DEFAULTS = { musicOn: true, effectsOn: true, music: .35, effects: .6, track: 'neon' };
   const frequency = midi => 440 * Math.pow(2, (midi - 69) / 12);
   const chords = [[48,60,64,71],[45,60,64,67],[50,62,65,69],[43,59,62,69],[41,57,60,64],[48,60,64,67],[45,57,60,67],[43,59,62,65]];
   const melody = [[72,76,null,79,74,null,71,76],[69,null,72,76,74,null,72,67],[74,77,null,76,72,null,69,74],[71,null,74,79,76,null,74,67],[69,72,null,76,72,null,69,64],[67,null,72,76,79,null,76,72],[72,69,null,67,76,null,72,69],[71,null,74,77,74,null,72,null]];

@@ -96,7 +96,7 @@
     async create(type,capacity,name,local=false){
       this.local=local;this.name=name;if(local)this.code='LOCAL';else{do{this.code=randomString(6);}while(usedCodes.has(this.code));usedCodes.add(this.code);}this.identity=seat(this.code);this.id=this.identity.id;
       this.host=new Room({code:this.code,type,capacity,name,hostId:this.id,secret:this.identity.secret,dice,randomIndex});
-      if(local){for(let index=1;index<capacity;index++){const guest=this.host.join({id:crypto.randomUUID(),name:'Player '+(index+1),secret:crypto.randomUUID()});guest.ready=true;}this.host.command(this.id,{type:'start',version:this.host.version});this.broadcast();return;}
+      if(local){for(let index=1;index<capacity;index++)this.host.join({id:crypto.randomUUID(),name:'Player '+(index+1),secret:crypto.randomUUID()});this.broadcast();return;}
       await this.openRelay();this.broadcast();this.announce('Room open. Invite your friends.','good');
     }
     async join(code,name){

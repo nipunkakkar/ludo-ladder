@@ -64,8 +64,8 @@
     }
     return art+'</g>';
   }
-  function snakeArt(from,to,index,id,headPoint=null,snakeId='snake-'+index,tailPoint=null){
-    const points=window.BoardGeometry.snakeCurve(headPoint||snakePoint(from),tailPoint||snakePoint(to)),colour=snakeColours[index%snakeColours.length],left=[],right=[],shine=[];
+  function snakeArt(from,to,index,id,headPoint=null,snakeId='snake-'+index,tailPoint=null,sway=0){
+    const points=window.BoardGeometry.snakeCurve(headPoint||snakePoint(from),tailPoint||snakePoint(to)).map(([x,y],index,all)=>[x+Math.sin(index/(all.length-1)*Math.PI*3)*Math.sin(index/(all.length-1)*Math.PI)*sway,y]),colour=snakeColours[index%snakeColours.length],left=[],right=[],shine=[];
     for(let i=0;i<points.length;i++){
       const prev=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)],dx=next[0]-prev[0],dy=next[1]-prev[1],length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length,t=i/(points.length-1),radius=1.3+8.5*Math.pow(1-t,.65);
       left.push([points[i][0]+nx*radius,points[i][1]+ny*radius]);right.push([points[i][0]-nx*radius,points[i][1]-ny*radius]);shine.push([points[i][0]-nx*radius*.35,points[i][1]-ny*radius*.35]);

@@ -12,6 +12,6 @@ test('snake drawing and animated slides use the same centre line and exact endpo
  }
 });
 test('the room refuses both old and new seats once the winning move completes',()=>{
- const room=new Room({code:'ABC234',type:'snakes',capacity:2,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice:()=>1});room.join({id:'b',name:'Alex',secret:'b'.repeat(32)});room.command('b',{type:'ready',ready:true,version:room.version});room.command('a',{type:'start',version:room.version});room.game.players[0].tokens=[99];room.command('a',{type:'roll',version:room.version});
+ const room=new Room({code:'ABC234',type:'snakes',capacity:2,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice:()=>1});room.join({id:'b',name:'Alex',secret:'b'.repeat(32)});room.game.players[0].tokens=[99];room.command('a',{type:'roll',version:room.version});
  assert.equal(room.phase,'won');for(const id of ['a','b','c'])assert.throws(()=>room.join({id,name:'Player',secret:id.repeat(32)}),/expired/);assert.throws(()=>room.command('a',{type:'rematch',version:room.version}),/expired/);
 });

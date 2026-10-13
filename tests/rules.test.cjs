@@ -5,7 +5,7 @@ const {Room}=require('../room.js');
 const players=[{id:'a',name:'Nipun',color:'red'},{id:'b',name:'Alex',color:'yellow'}];
 const game=type=>R.create(type,players);
 function room(code='ABC234',dice=()=>6){return new Room({code,type:'ludo',capacity:2,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice});}
-function startRoom(value){value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});value.command('b',{type:'ready',ready:true,version:value.version});value.command('a',{type:'start',version:value.version});}
+function startRoom(value){value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});}
 
 test('board geometry is one unique 52-cell track, with correct opposing seats',()=>{
  assert.equal(R.TRACK.length,52);assert.equal(new Set(R.TRACK.map(x=>x.join(','))).size,52);
@@ -49,11 +49,23 @@ test('snake finish needs an exact roll, overshooting does not move, and winner f
  const g=game('snakes');g.players[0].tokens[0]=97;R.roll(g,'a',5);assert.equal(g.players[0].tokens[0],97);assert.equal(g.turn,1);
  R.roll(g,'b',1);R.roll(g,'a',3);assert.equal(g.winner,'a');assert.equal(g.players[0].tokens[0],100);assert.throws(()=>R.roll(g,'b',2));
 });
-test('room starts only when all selected seats are ready; only host can start',()=>{
- const value=room();assert.throws(()=>value.command('a',{type:'start',version:value.version}));
- value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});assert.equal(value.canStart(),false);
- value.command('b',{type:'ready',ready:true,version:value.version});assert.equal(value.canStart(),true);
- assert.throws(()=>value.command('b',{type:'start',version:value.version}));value.command('a',{type:'start',version:value.version});assert.equal(value.phase,'playing');
+test('joining automatically starts exactly the selected number of players, with no ready action',()=>{
+ for(const capacity of [2,3,4]){
+  const value=new Room({code:'ABC234',type:'ludo',capacity,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice:()=>1});
+  assert.equal(value.phase,'lobby');assert.equal(value.game,null);
+  for(let i=1;i<capacity;i++){
+   value.join({id:String(i),name:'Guest '+i,secret:String(i).repeat(32)});
+   assert.equal(value.phase,i===capacity-1?'playing':'lobby');
+  }
+  assert.equal(value.game.players.length,capacity);assert.equal(value.game.turn,0);
+  const game=value.game;value.join({id:'1',name:'Guest 1',secret:'1'.repeat(32)});assert.equal(value.game,game,'rejoining must not reset the game');
+  assert.throws(()=>value.command('a',{type:'ready',ready:false,version:value.version}));
+ }
+});
+test('automatic start waits for disconnected lobby seats to rejoin',()=>{
+ const value=new Room({code:'ABC234',type:'snakes',capacity:3,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice:()=>1});
+ value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});value.disconnect('b');value.join({id:'c',name:'Sam',secret:'c'.repeat(32)});
+ assert.equal(value.phase,'lobby');assert.equal(value.game,null);value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});assert.equal(value.phase,'playing');
 });
 test('capacity, late joins and unauthenticated seat takeovers are rejected',()=>{
  const value=room();startRoom(value);
@@ -79,10 +91,10 @@ test('disconnected guests retain their seat during a game and cannot act until r
  value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});assert.equal(value.players[1].connected,true);
 });
 test('lobby removal makes a seat available but a completed room cannot reopen',()=>{
- const value=room();value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});
+ const value=new Room({code:'ABC234',type:'ludo',capacity:3,hostId:'a',name:'Nipun',secret:'a'.repeat(32),dice:()=>1});value.join({id:'b',name:'Alex',secret:'b'.repeat(32)});
  assert.throws(()=>value.command('b',{type:'remove',player:'a',version:value.version}));
  value.command('a',{type:'remove',player:'b',version:value.version});assert.equal(value.players.length,1);
- startRoom(value);assert.throws(()=>value.command('a',{type:'rematch',version:value.version}));
+ startRoom(value);value.join({id:'c',name:'Sam',secret:'c'.repeat(32)});assert.throws(()=>value.command('a',{type:'rematch',version:value.version}));
  value.game.winner='a';value.phase='won';assert.throws(()=>value.command('a',{type:'rematch',version:value.version}),/expired/);assert.equal(value.phase,'won');assert.equal(value.snapshot().roomClosed,true);
 });
 test('three and four player games rotate across every seat',()=>{
