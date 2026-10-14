@@ -42,7 +42,7 @@ for(const type of ['ludo','snakes'])test(`relay protocol starts on joining and v
   if(type==='ludo'){
    assert.equal(guest.state.game.pending.die,6);await host.connection.command({type:'move',token:0});await flush();assert.equal(guest.state.game.players[0].tokens[0],0);
    host.connection.host.dice=()=>1;await host.connection.command({type:'roll'});await flush();assert.equal(guest.state.game.action.automatic,true);assert.equal(guest.state.game.pending,null);
-  }else assert.equal(guest.state.game.players[0].tokens[0],22);
+  }else {assert.equal(guest.state.game.players[0].tokens[0],0);assert.equal(guest.state.game.action.waitingForSix,true);}
   await guest.connection.command({type:'roll'});await flush();assert.deepEqual(normalize(guest.state),normalize(host.state));
   guest.connection.relay.close();await flush();assert.equal(host.state.players[1].connected,false);
   await guest.connection.reconnect();await flush();assert.equal(host.state.players[1].connected,true);assert.equal(host.state.players.length,2);
@@ -66,8 +66,8 @@ test('host connection can return without losing the shared game',async()=>{
  const relay=transport(),host=client(relay),guest=client(relay);
  try{
   await host.connection.create('snakes',2,'Host');await guest.connection.join(host.state.code,'Guest');await flush();
-  host.connection.host.dice=()=>3;await host.connection.command({type:'roll'});await flush();host.connection.relay.close();await flush();assert.equal(guest.state.connectionLost,true);
-  await host.connection.reconnect();await flush();await flush();assert.equal(guest.state.connectionLost,undefined);assert.equal(guest.state.game.players[0].tokens[0],22);
+  host.connection.host.dice=()=>6;await host.connection.command({type:'roll'});await flush();host.connection.host.dice=()=>1;await host.connection.command({type:'roll'});await flush();host.connection.relay.close();await flush();assert.equal(guest.state.connectionLost,true);
+  await host.connection.reconnect();await flush();await flush();assert.equal(guest.state.connectionLost,undefined);assert.equal(guest.state.game.players[0].tokens[0],2);
   await guest.connection.command({type:'roll'});await flush();assert.deepEqual(normalize(guest.state),normalize(host.state));
  }finally{host.connection.close();guest.connection.close();}
 });
@@ -102,5 +102,20 @@ test('moving snakes and caught pawns are chosen by the host and replicated to al
   await host.connection.create('snakes',2,'Host');await guest.connection.join(host.state.code,'Guest');await flush();
   host.connection.host.game.rollCount=3;host.connection.host.game.players[0].tokens=[1];host.connection.host.game.players[1].tokens=[11];host.connection.host.dice=()=>1;host.connection.host.randomIndex=()=>0;host.connection.broadcast();await flush();
   await host.connection.command({type:'roll',snakeShifts:[{to:99}],die:6});await flush();assert.equal(host.state.game.action.snakeShifts.length,6);assert.equal(host.state.game.action.snakeShifts[0].to,11);assert.equal(host.state.game.action.snakeShifts[0].fromTail,7);assert.equal(host.state.game.action.snakeShifts[0].tail,1);assert.equal(guest.state.game.players[1].tokens[0],1);assert.deepEqual(normalize(host.state),normalize(guest.state));assert.equal(guest.state.phase,'playing');
+ }finally{host.connection.close();guest.connection.close();}
+});
+
+test('entry sixes, the third-six cutoff and ladder bonuses stay identical for host and guest',async()=>{
+ const relay=transport(),host=client(relay),guest=client(relay);
+ try{
+  await host.connection.create('snakes',2,'Host');await guest.connection.join(host.state.code,'Guest');await flush();host.connection.host.randomIndex=()=>0;
+  const roll=async(actor,die)=>{host.connection.host.dice=()=>die;await actor.connection.command({type:'roll',die:5,bonus:'ladder'});await flush();assert.deepEqual(normalize(host.state),normalize(guest.state));};
+  await roll(host,2);assert.equal(host.state.game.players[0].tokens[0],0);assert.equal(host.state.game.turn,1);
+  await roll(guest,6);assert.equal(host.state.game.players[1].tokens[0],1);assert.equal(host.state.game.turn,1);
+  await roll(guest,6);assert.equal(host.state.game.players[1].tokens[0],7);assert.equal(host.state.game.sixes,2);
+  await roll(guest,6);assert.equal(host.state.game.players[1].tokens[0],7);assert.equal(host.state.game.action.threeSixes,true);assert.equal(host.state.game.turn,0);
+  await assert.rejects(guest.connection.command({type:'roll'}));await flush();
+  await roll(host,6);await roll(host,2);assert.equal(host.state.game.players[0].tokens[0],22);assert.equal(host.state.game.action.bonus,'ladder');assert.equal(host.state.game.turn,0);
+  await roll(host,1);assert.equal(host.state.game.players[0].tokens[0],23);assert.equal(host.state.game.turn,1);
  }finally{host.connection.close();guest.connection.close();}
 });

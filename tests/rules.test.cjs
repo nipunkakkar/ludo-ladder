@@ -41,8 +41,9 @@ test('three consecutive sixes forfeit the current turn',()=>{
  const g=game('ludo');R.roll(g,'a',6);R.move(g,'a',0);R.roll(g,'a',6);R.move(g,'a',0);R.roll(g,'a',6);
  assert.equal(g.turn,1);assert.equal(g.pending,null);assert.equal(g.players[0].tokens[0],6);
 });
-test('snakes and ladders transport only on landing, then pass the turn',()=>{
- const g=game('snakes');R.roll(g,'a',3,()=>1);assert.equal(g.players[0].tokens[0],22);assert.equal(g.action.jump,'ladder');assert.equal(g.turn,1);
+test('ladder landings grant a bonus; snake landings pass the turn unless the die is six',()=>{
+ const g=game('snakes');g.players[0].tokens[0]=1;R.roll(g,'a',2,()=>1);assert.equal(g.players[0].tokens[0],22);assert.equal(g.action.jump,'ladder');assert.equal(g.action.bonus,'ladder');assert.equal(g.turn,0);
+ R.roll(g,'a',1);assert.equal(g.players[0].tokens[0],23);assert.equal(g.turn,1);
  g.players[1].tokens[0]=15;R.roll(g,'b',2);assert.equal(g.players[1].tokens[0],7);assert.equal(g.action.jump,'snake');assert.equal(g.turn,0);
 });
 test('snake finish needs an exact roll, overshooting does not move, and winner freezes play',()=>{

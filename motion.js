@@ -32,8 +32,9 @@
         const segments=[];
         if(primary && from!==to){
           const landing=after.type==='snakes'?action.landing:to;
+          const opening=from<0 || (after.type==='snakes' && action.opened);
           const squares=from<0?[0]:Array.from({length:Math.max(0,landing-from)},(_,index)=>from+index+1);
-          squares.forEach((square,index)=>segments.push({to:center(after.type,player.color,square,token),duration:from<0?320:145,hop:from<0?12:5,sound:'step',step:index}));
+          squares.forEach((square,index)=>segments.push({to:center(after.type,player.color,square,token),duration:opening?320:145,hop:opening?12:5,sound:'step',step:index}));
           if(after.type==='snakes' && action.jump){
             const landingPoint=center(after.type,player.color,landing,token);
             if(action.jump==='ladder')segments.push({to:end,duration:700,hop:0,highlight:'ladder'});

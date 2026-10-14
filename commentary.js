@@ -11,6 +11,7 @@
     const actor=game.players.find(player=>player.id===action.player);
     const line=(kind,mood,text,effect=null,timing='arrival')=>[{kind,mood,text,effect,timing}];
     const joke=lines=>pick(lines,action.id);
+    if(action.threeSixes)return line('triple-six','surprise',joke(['Three sixes?! The dice have GROUNDED you!','Too much six appeal! Your opponent gets the dice!','SIX, SIX, STOP! Save some luck for the rest of us!']),'tension','roll');
     if(action.snakeShifts?.length && !game.winner)return line('snake-shift','surprise',joke(action.snakeShifts.some(shift=>shift.players.length)?['Ssssurprise! The snakes shuffled under somebody. HOLD ON!','Oh NO! That parking spot came with a slide!','Snake shuffle! Someone is taking the scenic route DOWN!']:['PLOT TWIST! Every snake has changed its address!','Sssshuffle time! Nobody trust the new neighbours!','WHO moved the snakes? Oh. All of them. Excellent.']),'head-shift','shift');
     if(action.type==='ludo-move'){
       if(game.winner)return line('win','celebrate',joke(['Game, set, Ludo! Bragging rights SECURED!','CHAMPION! Take a bow. Everyone else, demand a rematch!','Crown secured! Please celebrate responsibly. Or loudly.']),'win');
@@ -32,15 +33,14 @@
     if(action.type==='snakes-move'){
       if(game.winner)return line('win','celebrate',joke(['ONE HUNDRED! The snakes want a rematch!','CROWN SECURED! Beat the snakes AND the odds!','Top floor! Somebody bring the confetti!']),'win');
       if(action.jump==='ladder')return line('ladder','celebrate',joke(action.to-action.landing>=30?['ROCKET MODE! That is the ladder to first class!','Who needs stairs? A giant upgrade just landed!','Going UP! Express elevator, no queues!']:['Wheee! A ladder! Leg day cancelled!','A free upgrade! No boarding pass required!','UP WE GO! Climbing the social ladder!']),'ladder','jump');
-      if(action.jump==='snake')return line('snake','surprise',joke(action.landing-action.to>=30?['PENTHOUSE TO BASEMENT! Nobody ordered THAT slide!','Oh NO! This snake has absolutely no chill!','Sssssurprise! The scenic route, but backwards!']:['SNAKE ATTACK! Please stop feeding the wildlife!','Who greased the board? Reverse gear, activated!','Oh no! That snake has terrible manners!']),'snake','jump');
-      if(action.from===0)return line('race-start','celebrate',joke(['And we are OFF! Do not pet the snakes!','Welcome to the jungle. The ladders look friendly. The snakes? Debatable.','New challenger! Keep those snacks away from the snakes!']),'race-start');
+      if(action.jump==='snake')return line('snake','surprise',joke(action.landing>=91 && action.to<=10?['TOP FLOOR TO THE GROUND! That snake has ZERO chill!','Almost a crown. Now back to town! That is a MONSTER slide!','OH NO! The giant snake has cancelled your victory dance!']:action.landing-action.to>=30?['PENTHOUSE TO BASEMENT! Nobody ordered THAT slide!','Oh NO! This snake has absolutely no chill!','Sssssurprise! The scenic route, but backwards!']:['SNAKE ATTACK! Please stop feeding the wildlife!','Who greased the board? Reverse gear, activated!','Oh no! That snake has terrible manners!']),'snake','jump');
+      if(action.opened)return line('race-start','celebrate',joke(['SIX appeal! We are OUT! Roll again, tiny champion!','And we are OFF! Bonus roll. Do not pet the snakes!','Fresh pawn, big plans! One more roll. Let us cause trouble!']),'race-start');
       const rivalPositions=game.players.filter(player=>player.id!==actor.id).map(player=>player.tokens[0]),leader=Math.max(...rivalPositions);
       if(leader>=80 && action.from<=leader && action.to>leader)return line('lead-change','surprise','LEAD STOLEN! Somebody jumped the queue. Nobody blink!','tension');
       if(action.from<90 && action.to>=90)return line('near-finish','proud',joke(['SO CLOSE! Tiptoe past those snakes!','The finish line is waving! Hold your nerve!','Final stretch! Save that victory dance for 100!']),'tension');
       return [];
     }
     if(action.type==='roll'){
-      if(game.type==='ludo' && action.note.includes('three sixes'))return line('triple-six','surprise','Three sixes?! The dice have GROUNDED you!','tension','roll');
       return [];
     }
     return [];

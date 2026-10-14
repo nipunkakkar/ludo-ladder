@@ -10,7 +10,7 @@
   const SAFE = new Set([0,8,13,21,26,34,39,47]);
   const OFFSET = { red: 0, green: 13, yellow: 26, blue: 39 };
   const LADDER = { 3:22, 8:30, 20:41, 28:76, 50:67, 71:92, 80:99 };
-  const SNAKE = { 17:7, 54:34, 62:19, 87:36, 93:73, 98:79 };
+  const SNAKE = { 17:7, 54:34, 62:19, 87:36, 93:4, 98:79 };
   const cleanName = name => String(name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 20) || 'Player';
   const seats = count => count === 2 ? ['red', 'yellow'] : COLORS.slice(0, count);
   function create(type, players) {
@@ -32,25 +32,36 @@
     game.lastDie = { value: die, player: id, id: game.actionId + 1 };
     game.actionId += 1;
     game.action = { type: 'roll', player: id, die, id: game.actionId, note: `${player.name} rolled ${die}.` };
+    game.sixes = die === 6 ? game.sixes + 1 : 0;
+    if (game.sixes === 3) {
+      game.action.threeSixes = true;
+      game.action.note = `${player.name}: three sixes! No move on this roll. Turn passes.`;
+      if (game.type === 'snakes') completeSnakeRoll(game, randomIndex);
+      else { addLog(game, game.action.note); next(game); }
+      return;
+    }
     if (game.type === 'snakes') {
       const from = player.tokens[0];
-      const landing = from + die;
+      if (from === 0 && die !== 6) {
+        game.action.waitingForSix = true;
+        game.action.note = `${player.name} rolled ${die}. A 6 is needed to open the piece. Turn passes.`;
+        completeSnakeRoll(game, randomIndex); return;
+      }
+      const opened = from === 0;
+      const landing = opened ? 1 : from + die;
       if (landing > 100) {
-        game.action.note = `${player.name} needs ${100 - from} to finish. Turn passes.`;
-        if(game.rollCount%4===0)shuffleSnakes(game,randomIndex);addLog(game, game.action.note); next(game); return;
+        game.action.bonus = die === 6 ? 'six' : null;
+        game.action.note = `${player.name} needs ${100 - from} to finish. Stays put.${game.action.bonus ? ' Six! Bonus roll.' : ' Turn passes.'}`;
+        completeSnakeRoll(game, randomIndex); return;
       }
       const snake=(game.snakes||[]).find(item=>item.head===landing),destination=LADDER[landing] || snake?.tail || landing;
       player.tokens[0] = destination;
-      game.action = { ...game.action, type: 'snakes-move', from, landing, to: destination, jump: destination > landing ? 'ladder' : destination < landing ? 'snake' : null };
-      game.action.note = destination > landing ? `${player.name} climbed ${landing} → ${destination}!` : destination < landing ? `${player.name} slid ${landing} → ${destination}. Ouch!` : `${player.name} moved to ${destination}.`;
+      game.action = { ...game.action, type: 'snakes-move', from, landing, to: destination, opened, jump: destination > landing ? 'ladder' : destination < landing ? 'snake' : null };
+      game.action.bonus = die === 6 ? 'six' : game.action.jump === 'ladder' ? 'ladder' : null;
+      game.action.note = opened ? `${player.name} opened the piece on 1!` : destination > landing ? `${player.name} climbed ${landing} → ${destination}!` : destination < landing ? `${player.name} slid ${landing} → ${destination}. Ouch!` : `${player.name} moved to ${destination}.`;
+      if (game.action.bonus) game.action.note += ' Bonus roll.';
       if (destination === 100) { game.winner = id; game.action.note = `${player.name} reached 100 and wins!`; }
-      else {if(game.rollCount%4===0)shuffleSnakes(game,randomIndex);next(game);}
-      addLog(game, game.action.note); return;
-    }
-    game.sixes = die === 6 ? game.sixes + 1 : 0;
-    if (game.sixes === 3) {
-      game.action.note = `${player.name}: three sixes! Turn passes.`;
-      addLog(game, game.action.note); next(game); return;
+      completeSnakeRoll(game, randomIndex); return;
     }
     game.pending = { die, player: id };
     if (!legal(game).length) {
@@ -58,6 +69,13 @@
       game.action.note = `${player.name} rolled ${die}. No legal move.`;
       if (die !== 6) next(game);
     }
+    addLog(game, game.action.note);
+  }
+  function completeSnakeRoll(game, randomIndex) {
+    if (!game.winner) {
+      if (game.rollCount % 4 === 0) shuffleSnakes(game, randomIndex);
+      if (!game.action.bonus) next(game);
+    } else game.action.bonus = null;
     addLog(game, game.action.note);
   }
   function shuffleSnakes(game,randomIndex){

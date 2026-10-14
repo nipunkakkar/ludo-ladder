@@ -6,7 +6,7 @@ test('only every fourth turn shuffles all snakes, with both ends moving within t
  const game=R.create('snakes',players);let seed=17;
  const randomIndex=length=>{seed=(seed*1664525+1013904223)>>>0;return seed%length;};
  for(let turn=1;turn<=400;turn++){
-  const before=clone(game.snakes),id=R.current(game).id;R.current(game).tokens=[0];R.roll(game,id,1,randomIndex);const shifts=game.action.snakeShifts;
+  const before=clone(game.snakes),id=R.current(game).id;R.current(game).tokens=[1];R.roll(game,id,1,randomIndex);const shifts=game.action.snakeShifts;
   if(turn%4){assert.equal(shifts,undefined);assert.deepEqual(game.snakes,before);continue;}
   assert.equal(shifts.length,6);
   for(const shift of shifts){
@@ -15,6 +15,7 @@ test('only every fourth turn shuffles all snakes, with both ends moving within t
   }
   assert.equal(game.snakes.filter((snake,index)=>snake.head!==before[index].head && snake.tail!==before[index].tail).length,6);
   assert.equal(new Set(game.snakes.flatMap(snake=>[snake.head,snake.tail])).size,12);
+  const giant=game.snakes.find(snake=>snake.id==='snake-4');assert.ok(giant.head>=91 && giant.head<=99);assert.ok(giant.tail>=1 && giant.tail<=10);
   for(const snake of game.snakes){assert.ok(snake.head>snake.tail);assert.notEqual(snake.head,100);for(const square of [snake.head,snake.tail]){assert.equal(!!R.LADDER[square],false);assert.equal(Object.values(R.LADDER).includes(square),false);}}
  }
 });

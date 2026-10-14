@@ -33,7 +33,7 @@ test('commentary announces releases, captures and finishes once per new action',
  const finishStart=R.create('ludo',players);finishStart.players[0].tokens[0]=55;const finish=clone(finishStart);R.roll(finish,'0',1);R.autoMove(finish,'0');assert.equal(Commentary.events(finishStart,finish)[0].effect,'finish');
 });
 test('snake and ladder commentary follows the actual landing result',()=>{
- const start=R.create('snakes',players),ladder=clone(start);R.roll(ladder,'0',3);assert.equal(Commentary.events(start,ladder)[0].kind,'ladder');
+ const start=R.create('snakes',players);start.players[0].tokens[0]=1;const ladder=clone(start);R.roll(ladder,'0',2);assert.equal(Commentary.events(start,ladder)[0].kind,'ladder');
  const before=R.create('snakes',players);before.players[0].tokens[0]=16;const after=clone(before);R.roll(after,'0',1);assert.equal(Commentary.events(before,after)[0].mood,'surprise');assert.equal(Commentary.events(before,after)[0].effect,'snake');
 });
 test('spoken reactions require a local English voice and respect mute and gesture unlock',()=>{
